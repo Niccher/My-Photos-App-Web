@@ -2,11 +2,16 @@
 
 <?= $this->section('content') ?>
 
+<div class="mb-4">
+    <h2 class="h4 mb-0">Archive</h2>
+    <p class="text-muted small mb-0">Photos you've archived to clear up your main view</p>
+</div>
+
 <?php if (empty($photos)): ?>
     <div class="text-center py-5">
-        <i class="bi bi-image" style="font-size: 4rem; color: #dee2e6;"></i>
-        <h3 class="mt-3 text-muted">No photos yet</h3>
-        <p class="text-muted">Upload some photos or scan the uploads folder to get started.</p>
+        <i class="bi bi-archive" style="font-size: 4rem; color: #dee2e6;"></i>
+        <h3 class="mt-3 text-muted">Archive is empty</h3>
+        <p class="text-muted">Hide photos from your main view by moving them here.</p>
     </div>
 <?php else: ?>
     <?php 
@@ -35,4 +40,5 @@
     </div> <!-- Close last grid -->
 <?php endif; ?>
 
+<!-- Include the lightbox partial if needed, but it's already in index.php. Wait. The lightbox modal is currently only in index.php! I should move it to main.php or duplicate it. -->
 <?= $this->endSection() ?>

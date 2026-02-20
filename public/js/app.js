@@ -9,10 +9,23 @@ $(document).ready(function () {
     // Lightbox Logic
     const $lightboxModal = new bootstrap.Modal('#lightboxModal');
     const $lightboxImage = $('#lightboxImage');
+    let currentPhotoId = null;
 
     $('.photo-item').on('click', function () {
         const $this = $(this);
         const fullUrl = $this.data('full');
+        currentPhotoId = $this.data('id');
+        const context = window.location.pathname.split('/').pop() || 'index';
+
+        if (context === 'trash') {
+            $('#btnRestore').show();
+            $('#btnArchive').hide();
+            $('#btnDelete').attr('title', 'Delete Permanently');
+        } else {
+            $('#btnRestore').hide();
+            $('#btnArchive').show();
+            $('#btnArchive i').attr('class', context === 'archive' ? 'bi bi-archive-fill fs-5' : 'bi bi-archive fs-5');
+        }
 
         // Populate metadata
         $('#metaFilename').text($this.data('filename'));
@@ -30,6 +43,40 @@ $(document).ready(function () {
 
     $('#btnCloseMetadata').on('click', function () {
         $('#metadataPanel').addClass('d-none');
+    });
+
+    // Photo Actions
+    $('#btnArchive').on('click', function () {
+        if (!currentPhotoId) return;
+        $.post(window.location.origin + '/hosts/Photos/photos/archive/' + currentPhotoId, function (res) {
+            if (res.status === 'success') {
+                $lightboxModal.hide();
+                $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
+            }
+        });
+    });
+
+    $('#btnDelete').on('click', function () {
+        if (!currentPhotoId) return;
+        const context = window.location.pathname.split('/').pop() || 'index';
+        if (context === 'trash' && !confirm('Permanently delete this photo? This cannot be undone.')) return;
+
+        $.post(window.location.origin + '/hosts/Photos/photos/delete/' + currentPhotoId, function (res) {
+            if (res.status === 'success') {
+                $lightboxModal.hide();
+                $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
+            }
+        });
+    });
+
+    $('#btnRestore').on('click', function () {
+        if (!currentPhotoId) return;
+        $.post(window.location.origin + '/hosts/Photos/photos/restore/' + currentPhotoId, function (res) {
+            if (res.status === 'success') {
+                $lightboxModal.hide();
+                $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
+            }
+        });
     });
 
     // Scan Logic
@@ -51,53 +98,5 @@ $(document).ready(function () {
         });
     });
 
-    // Upload Logic
-    $('#fileInput').on('change', function () {
-        const files = this.files;
-        if (files.length === 0) return;
-
-        let uploadedCount = 0;
-        let errorCount = 0;
-        const totalFiles = files.length;
-        $loading.css('display', 'flex');
-
-        function uploadNext(index) {
-            if (index >= totalFiles) {
-                if (errorCount > 0) {
-                    alert('Transfers complete. ' + uploadedCount + ' successful, ' + errorCount + ' failed.');
-                }
-                location.reload();
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', files[index]);
-
-            $.ajax({
-                url: 'upload',
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                timeout: 30000, // 30 second timeout
-                success: function (response) {
-                    if (response.status === 'success') {
-                        uploadedCount++;
-                    } else {
-                        errorCount++;
-                        console.error('Upload failed for ' + files[index].name + ':', response.message);
-                    }
-                },
-                error: function (xhr, status, error) {
-                    errorCount++;
-                    console.error('Upload error for ' + files[index].name, status, error);
-                },
-                complete: function () {
-                    uploadNext(index + 1);
-                }
-            });
-        }
-
-        uploadNext(0);
-    });
+    // Dropzone logic is handled automatically by the dropzone class in the HTML.
 });
