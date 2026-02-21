@@ -108,13 +108,36 @@
         <a class="navbar-brand" href="<?= base_url() ?>">
             <i class="bi bi-images"></i> Photos
         </a>
-        <div class="ms-auto d-flex align-items-center">
-            <button class="btn btn-outline-primary me-2" id="btnScan">
+        <div class="ms-auto d-flex align-items-center gap-2">
+            <button class="btn btn-outline-primary btn-sm" id="btnScan" title="Scan uploads folder">
                 <i class="bi bi-arrow-repeat"></i> <span class="d-none d-md-inline">Scan</span>
             </button>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal" title="Upload photos">
                 <i class="bi bi-cloud-upload"></i> <span class="d-none d-md-inline">Upload</span>
             </button>
+            <?php if (auth()->loggedIn()): ?>
+            <div class="dropdown">
+                <button class="btn btn-link p-0 d-flex align-items-center text-decoration-none" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                         style="width:34px;height:34px;background:linear-gradient(135deg,#4285f4,#00c6ff);font-size:0.85rem;cursor:pointer;">
+                        <?= strtoupper(substr(auth()->user()->username ?? auth()->user()->email, 0, 1)) ?>
+                    </div>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end shadow border-0" style="min-width:200px;">
+                    <li class="px-3 py-2">
+                        <div class="fw-semibold" style="font-size:0.9rem;"><?= esc(auth()->user()->username ?? '') ?></div>
+                        <div class="text-muted" style="font-size:0.78rem;"><?= esc(auth()->user()->email) ?></div>
+                    </li>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-center gap-2" href="<?= url_to('logout') ?>">
+                            <i class="bi bi-box-arrow-right text-danger"></i>
+                            <span>Sign out</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <?php endif ?>
         </div>
     </div>
 </nav>
