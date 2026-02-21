@@ -10,8 +10,13 @@ $(document).ready(function () {
     const $lightboxModal = new bootstrap.Modal('#lightboxModal');
     const $lightboxImageContainer = $('#lightboxImageContainer');
     let currentPhotoId = null;
-    let $allPhotos = $('.photo-item');
+    let isSelectMode = false;
+    let selectedIds = new Set();
+
+    // Corrected $loading variable initialization
+    // const $loading = $('.loading-overlay'); // This line was moved from the top, but the original $loading was for #loadingOverlay. Reverting to original.
     let currentIndex = -1;
+    let $allPhotos = $('.photo-item'); // This was moved from inside openPhoto, ensuring it's available globally.
 
     function openPhoto(index) {
         if (index < 0 || index >= $allPhotos.length) return;
@@ -95,7 +100,9 @@ $(document).ready(function () {
     $(document).on('click', '.photo-item', function () {
         // Refresh photo list in case of dynamic changes (AJAX/Masonry)
         $allPhotos = $('.photo-item');
-        openPhoto($allPhotos.index(this));
+        if (!isSelectMode) { // Only open photo if not in select mode
+            openPhoto($allPhotos.index(this));
+        }
     });
 
     $('#btnPrevPhoto').on('click', function (e) {
@@ -270,6 +277,119 @@ $(document).ready(function () {
                 location.reload();
             } else {
                 alert(res.message);
+            }
+        });
+    });
+
+    // --- Search Logic ---
+    let searchTimer;
+    $('#searchInput').on('input', function () {
+        clearTimeout(searchTimer);
+        const q = $(this).val();
+        searchTimer = setTimeout(() => {
+            const url = new URL(window.location.href);
+            if (q) url.searchParams.set('q', q);
+            else url.searchParams.delete('q');
+            window.location.href = url.href;
+        }, 800);
+    });
+
+    // --- Bulk Selection Logic ---
+    const $bulkToolbar = $('#bulkActionsToolbar');
+    const $selectedCount = $('#selectedCount');
+
+    $('#btnToggleSelect, #btnCancelSelect').on('click', function () {
+        isSelectMode = !isSelectMode;
+        toggleSelectMode();
+    });
+
+    function toggleSelectMode() {
+        isSelectMode ? $('body').addClass('select-mode') : $('body').removeClass('select-mode');
+        $('#btnToggleSelect').toggleClass('btn-primary btn-outline-secondary');
+        $('#selectModeText').text(isSelectMode ? 'Cancel' : 'Select');
+        $('.selection-overlay').toggleClass('d-none', !isSelectMode);
+
+        if (!isSelectMode) {
+            selectedIds.clear();
+            $('.photo-item').removeClass('selected').find('.bi-check-lg').addClass('d-none');
+            updateBulkToolbar();
+        }
+    }
+
+    $(document).on('click', '.photo-item', function (e) {
+        if (!isSelectMode) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const id = $(this).data('id');
+        if (selectedIds.has(id)) {
+            selectedIds.delete(id);
+            $(this).removeClass('selected').find('.bi-check-lg').addClass('d-none');
+        } else {
+            selectedIds.add(id);
+            $(this).addClass('selected').find('.bi-check-lg').removeClass('d-none');
+        }
+
+        updateBulkToolbar();
+    });
+
+    function updateBulkToolbar() {
+        const count = selectedIds.size;
+        $selectedCount.text(count);
+        $bulkToolbar.toggleClass('d-none', count === 0);
+    }
+
+    // --- Bulk Actions ---
+    $('#bulkFavorite, #bulkArchive, #bulkDelete').on('click', function () {
+        const action = $(this).attr('id').replace('bulk', '').toLowerCase();
+        if (selectedIds.size === 0) return;
+
+        if (action === 'delete' && !confirm(`Delete ${selectedIds.size} selected photos?`)) return;
+
+        $.post(BASE_URL + 'bulk-action', {
+            action: action,
+            ids: Array.from(selectedIds)
+        }, function (res) {
+            if (res.status === 'success') {
+                location.reload();
+            }
+        });
+    });
+
+    $('#bulkAddToAlbum').on('click', function () {
+        if (selectedIds.size === 0) return;
+        $addToAlbumModal.show();
+
+        // Re-use album list fetching logic
+        const $container = $('#albumListContainer');
+        $container.html('<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+
+        $.get(BASE_URL + 'albums', { json: 1 }, function (res) {
+            if (res.albums) {
+                if (res.albums.length === 0) {
+                    $container.html('<div class="text-center p-3 text-muted small">No albums found.</div>');
+                    return;
+                }
+
+                let html = '';
+                res.albums.forEach(album => {
+                    html += `<button type="button" class="list-group-item list-group-item-action bg-transparent text-white border-secondary small py-2 btn-confirm-bulk-add" data-album-id="${album.id}">${album.name}</button>`;
+                });
+                $container.html(html);
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-confirm-bulk-add', function () {
+        const albumId = $(this).data('album-id');
+        $.post(BASE_URL + 'bulk-action', {
+            action: 'add_to_album',
+            album_id: albumId,
+            ids: Array.from(selectedIds)
+        }, function (res) {
+            if (res.status === 'success') {
+                location.reload();
             }
         });
     });

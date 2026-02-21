@@ -32,6 +32,7 @@ $routes->group('', ['filter' => 'session'], function ($routes) {
     $routes->post('albums/create',         'Photos::createAlbum');
     $routes->post('albums/add-photo',      'Photos::addPhotoToAlbum');
     $routes->post('photos/favorite/(:num)','Photos::toggleFavorite/$1');
+    $routes->post('bulk-action', 'Photos::bulkAction');
 
     $routes->get('users/search',           'Photos::searchUsers');
 });

@@ -11,17 +11,31 @@ class Photos extends BaseController
     {
         $photoModel = new \App\Models\PhotoModel();
         
+        // 1. Get counts and storage first (resets builder)
+        $userId = auth()->id();
+        $totalBytes = $photoModel->where('user_id', $userId)->selectSum('size')->first()['size'] ?? 0;
         $counts = $this->getSidebarCounts();
-        $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
-        
+
+        // 2. Build the main query afresh
+        $query = $photoModel->where('user_id', $userId)
+                            ->where('is_archived', false)
+                            ->orderBy('taken_at', 'DESC');
+
+        $q = $this->request->getGet('q');
+        if (!empty($q)) {
+            $query->groupStart()
+                  ->like('filename', $q)
+                  ->orLike('exif_data', $q)
+                  ->orLike('taken_at', $q)
+                  ->groupEnd();
+        }
+
         $data = [
-            'photos'         => $photoModel->where('user_id', auth()->id())
-                                             ->where('is_archived', false)
-                                             ->orderBy('taken_at', 'DESC')
-                                             ->findAll(),
+            'photos'         => $query->findAll(),
             'storageUsed'    => $this->formatBytes($totalBytes),
             'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
-            'counts'         => $counts
+            'counts'         => $counts,
+            'searchQuery'    => $q
         ];
         
         return view('photos/index', $data);
@@ -29,19 +43,33 @@ class Photos extends BaseController
     public function explore()
     {
         $photoModel = new \App\Models\PhotoModel();
-        // Fetch only photos with location data
+        $userId = auth()->id();
+
+        // 1. Metrics first
+        $totalBytes = $photoModel->where('user_id', $userId)->selectSum('size')->first()['size'] ?? 0;
         $counts = $this->getSidebarCounts();
-        $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
+        
+        // 2. Main query
+        $query = $photoModel->where('user_id', $userId)
+                            ->where('latitude IS NOT NULL')
+                            ->where('longitude IS NOT NULL')
+                            ->where('is_archived', false);
+
+        $q = $this->request->getGet('q');
+        if (!empty($q)) {
+            $query->groupStart()
+                  ->like('filename', $q)
+                  ->orLike('exif_data', $q)
+                  ->orLike('taken_at', $q)
+                  ->groupEnd();
+        }
 
         $data = [
-            'locations'      => $photoModel->where('user_id', auth()->id())
-                                           ->where('latitude IS NOT NULL')
-                                           ->where('longitude IS NOT NULL')
-                                           ->where('is_archived', false)
-                                           ->findAll(),
+            'locations'      => $query->findAll(),
             'storageUsed'    => $this->formatBytes($totalBytes),
             'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
-            'counts'         => $counts
+            'counts'         => $counts,
+            'searchQuery'    => $q
         ];
 
         return view('photos/explore', $data);
@@ -297,9 +325,27 @@ class Photos extends BaseController
     public function archive()
     {
         $photoModel = new \App\Models\PhotoModel();
+        $userId = auth()->id();
+        
+        // 1. Counts first
+        $counts = $this->getSidebarCounts();
+
+        // 2. Main query afresh
+        $query = $photoModel->where('user_id', $userId)->where('is_archived', true)->orderBy('taken_at', 'DESC');
+
+        $q = $this->request->getGet('q');
+        if (!empty($q)) {
+            $query->groupStart()
+                  ->like('filename', $q)
+                  ->orLike('exif_data', $q)
+                  ->orLike('taken_at', $q)
+                  ->groupEnd();
+        }
+
         $data = [
-            'photos' => $photoModel->where('user_id', auth()->id())->where('is_archived', true)->orderBy('taken_at', 'DESC')->findAll(),
-            'counts' => $this->getSidebarCounts()
+            'photos'      => $query->findAll(),
+            'counts'      => $counts,
+            'searchQuery' => $q
         ];
         return view('photos/archive', $data);
     }
@@ -307,9 +353,25 @@ class Photos extends BaseController
     public function trash()
     {
         $photoModel = new \App\Models\PhotoModel();
+        $userId = auth()->id();
+        
+        $counts = $this->getSidebarCounts();
+        
+        $query = $photoModel->where('user_id', $userId)->onlyDeleted()->orderBy('deleted_at', 'DESC');
+
+        $q = $this->request->getGet('q');
+        if (!empty($q)) {
+            $query->groupStart()
+                  ->like('filename', $q)
+                  ->orLike('exif_data', $q)
+                  ->orLike('taken_at', $q)
+                  ->groupEnd();
+        }
+
         $data = [
-            'photos' => $photoModel->where('user_id', auth()->id())->onlyDeleted()->orderBy('deleted_at', 'DESC')->findAll(),
-            'counts' => $this->getSidebarCounts()
+            'photos'      => $query->findAll(),
+            'counts'      => $counts,
+            'searchQuery' => $q
         ];
         return view('photos/trash', $data);
     }
@@ -317,10 +379,29 @@ class Photos extends BaseController
     public function favorites()
     {
         $photoModel = new \App\Models\PhotoModel();
+        $userId = auth()->id();
+        
+        $counts = $this->getSidebarCounts();
+        
+        $query = $photoModel->where('user_id', $userId)
+                            ->where('is_favorite', true)
+                            ->where('is_archived', false)
+                            ->orderBy('taken_at', 'DESC');
+
+        $q = $this->request->getGet('q');
+        if (!empty($q)) {
+            $query->groupStart()
+                  ->like('filename', $q)
+                  ->orLike('exif_data', $q)
+                  ->orLike('taken_at', $q)
+                  ->groupEnd();
+        }
+
         $data = [
-            'title'  => 'Favorites',
-            'photos' => $photoModel->where('user_id', auth()->id())->where('is_favorite', true)->where('is_archived', false)->orderBy('taken_at', 'DESC')->findAll(),
-            'counts' => $this->getSidebarCounts()
+            'title'       => 'Favorites',
+            'photos'      => $query->findAll(),
+            'counts'      => $counts,
+            'searchQuery' => $q
         ];
         return view('photos/index', $data); // We reuse index for simple filtered views
     }
@@ -502,6 +583,57 @@ class Photos extends BaseController
         } catch (\Throwable $e) {
             return "Migration failed: " . $e->getMessage();
         }
+    }
+
+    public function bulkAction()
+    {
+        $userId  = auth()->id();
+        $action  = $this->request->getPost('action');
+        $photoIds = $this->request->getPost('ids'); // Expects array
+
+        if (!$userId || empty($photoIds) || empty($action)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid request']);
+        }
+
+        $photoModel = new \App\Models\PhotoModel();
+        $db = \Config\Database::connect();
+
+        switch ($action) {
+            case 'archive':
+                $photoModel->whereIn('id', $photoIds)->where('user_id', $userId)->set(['is_archived' => true])->update();
+                break;
+            case 'unarchive':
+                $photoModel->whereIn('id', $photoIds)->where('user_id', $userId)->set(['is_archived' => false])->update();
+                break;
+            case 'favorite':
+                $photoModel->whereIn('id', $photoIds)->where('user_id', $userId)->set(['is_favorite' => true])->update();
+                break;
+            case 'unfavorite':
+                $photoModel->whereIn('id', $photoIds)->where('user_id', $userId)->set(['is_favorite' => false])->update();
+                break;
+            case 'delete':
+                // Check if already in trash (soft delete) or permanent
+                $photoModel->whereIn('id', $photoIds)->where('user_id', $userId)->delete();
+                break;
+            case 'add_to_album':
+                $albumId = $this->request->getPost('album_id');
+                if (!$albumId) return $this->response->setJSON(['status' => 'error', 'message' => 'Album ID required']);
+                
+                $builder = $db->table('album_photos');
+                foreach ($photoIds as $id) {
+                    $exists = $builder->where(['album_id' => $albumId, 'photo_id' => $id])->get()->getRow();
+                    if (!$exists) {
+                        $builder->insert([
+                            'album_id' => $albumId,
+                            'photo_id' => $id,
+                            'added_at' => date('Y-m-d H:i:s')
+                        ]);
+                    }
+                }
+                break;
+        }
+
+        return $this->response->setJSON(['status' => 'success']);
     }
 
     private function getMergedMetadata($path)

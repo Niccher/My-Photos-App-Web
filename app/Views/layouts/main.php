@@ -23,6 +23,7 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8f9fa;
+            overflow-x: hidden;
         }
         .navbar {
             background-color: white;
@@ -138,7 +139,16 @@
         <a class="navbar-brand" href="<?= base_url() ?>">
             <i class="bi bi-images"></i> Photos
         </a>
+        <div class="ms-3 flex-grow-1 d-none d-lg-block" style="max-width: 400px;">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="searchInput" class="form-control bg-light border-start-0" placeholder="Search photos..." value="<?= $searchQuery ?? '' ?>">
+            </div>
+        </div>
         <div class="ms-auto d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary btn-sm px-3 d-none d-sm-inline-block" id="btnToggleSelect" title="Select photos">
+                <i class="bi bi-check2-square"></i> <span id="selectModeText">Select</span>
+            </button>
             <button class="btn btn-outline-primary btn-sm" id="btnScan" title="Scan uploads folder">
                 <i class="bi bi-arrow-repeat"></i> <span class="d-none d-md-inline">Scan</span>
             </button>
@@ -173,8 +183,7 @@
 </nav>
 
 <div class="container-fluid">
-    <div class="row">
-        <nav id="sidebarMenu" class="sidebar">
+    <nav id="sidebarMenu" class="sidebar">
             <div class="position-sticky d-flex flex-column h-100">
                 <ul class="nav flex-column mb-auto">
                     <li class="nav-item">
@@ -242,6 +251,31 @@
         <main class="main-content">
             <?= $this->renderSection('content') ?>
         </main>
+</div>
+
+<!-- Bulk Actions Toolbar (Floating) -->
+<div id="bulkActionsToolbar" class="position-fixed bottom-0 start-50 translate-middle-x mb-4 bg-dark text-white rounded-pill shadow-lg px-4 py-2 d-none" style="z-index: 1050; border: 1px solid rgba(255,255,255,0.1);">
+    <div class="d-flex align-items-center gap-4">
+        <span class="small fw-bold"><span id="selectedCount">0</span> selected</span>
+        <div class="vr"></div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-link text-white p-0" id="bulkFavorite" title="Favorite Selected">
+                <i class="bi bi-heart fs-5"></i>
+            </button>
+            <button class="btn btn-link text-white p-0" id="bulkArchive" title="Archive Selected">
+                <i class="bi bi-archive fs-5"></i>
+            </button>
+            <button class="btn btn-link text-white p-0" id="bulkDelete" title="Delete Selected">
+                <i class="bi bi-trash fs-5"></i>
+            </button>
+            <button class="btn btn-link text-white p-0" id="bulkAddToAlbum" title="Add Selected to Album">
+                <i class="bi bi-plus-circle fs-5"></i>
+            </button>
+        </div>
+        <div class="vr"></div>
+        <button class="btn btn-link text-white p-0" id="btnCancelSelect" title="Cancel Selection">
+            <i class="bi bi-x-lg fs-6"></i>
+        </button>
     </div>
 </div>
 

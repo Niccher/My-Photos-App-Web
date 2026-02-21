@@ -11,7 +11,14 @@
     </div>
 <?php endif; ?>
 
-<?php if (empty($photos)): ?>
+<?php if (!empty($searchQuery) && empty($photos)): ?>
+    <div class="text-center py-5">
+        <i class="bi bi-search" style="font-size: 4rem; color: #dee2e6;"></i>
+        <h3 class="mt-3 text-muted">No results found</h3>
+        <p class="text-muted">We couldn't find any photos matching "<?= esc($searchQuery) ?>".</p>
+        <a href="<?= base_url() ?>" class="btn btn-link text-decoration-none">Clear search</a>
+    </div>
+<?php elseif (empty($photos)): ?>
     <div class="text-center py-5">
         <i class="bi bi-image" style="font-size: 4rem; color: #dee2e6;"></i>
         <h3 class="mt-3 text-muted">No photos yet</h3>
@@ -41,6 +48,11 @@
              data-exif='<?= $photo['exif_data'] ? esc($photo['exif_data'], 'attr') : '' ?>'
              data-location="<?= ($photo['latitude'] && $photo['longitude']) ? $photo['latitude'].','.$photo['longitude'] : '' ?>"
              data-type="<?= strpos($photo['mime_type'], 'video/') === 0 ? 'video' : 'image' ?>">
+            <div class="selection-overlay d-none position-absolute top-0 start-0 w-100 h-100 flex-row align-items-start justify-content-end p-2" style="z-index: 10; background: rgba(0,0,0,0.1);">
+                <div class="selection-check d-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm" style="width: 24px; height: 24px; cursor: pointer; border: 2px solid #1a73e8; color: #1a73e8;">
+                    <i class="bi bi-check-lg d-none"></i>
+                </div>
+            </div>
             <?php if ($photo['is_favorite']): ?>
                 <div class="position-absolute top-0 start-0 p-2" style="z-index: 5;">
                     <i class="bi bi-heart-fill text-danger shadow-sm"></i>
