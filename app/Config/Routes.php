@@ -24,8 +24,12 @@ $routes->group('', ['filter' => 'session'], function ($routes) {
     // Sharing API
     $routes->post('photos/share/(:num)',   'Photos::sharePhoto/$1');
     $routes->post('photos/unshare/(:num)', 'Photos::unsharePhoto/$1');
+    $routes->post('photos/generate-link/(:num)', 'Photos::generateShareLink/$1');
     $routes->get('users/search',           'Photos::searchUsers');
 });
+
+// Public Sharing Routes
+$routes->get('s/(:any)', 'Photos::viewShared/$1');
 
 // Shield's auth routes (login, register, magic-link, etc.)
 service('auth')->routes($routes);

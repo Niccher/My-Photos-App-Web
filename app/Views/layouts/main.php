@@ -79,6 +79,31 @@
             height: 4px;
             margin-bottom: 0.5rem;
         }
+
+        /* Lightbox Navigation */
+        .lightbox-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1060;
+            background: rgba(0,0,0,0.3);
+            border: none;
+            color: white;
+            padding: 1.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+        #lightboxModal:hover .lightbox-nav {
+            opacity: 1;
+        }
+        .lightbox-nav:hover {
+            background: rgba(0,0,0,0.6);
+            scale: 1.1;
+        }
+        .lightbox-prev { left: 20px; }
+        .lightbox-next { right: 20px; }
+        
         @media (max-width: 991.98px) {
             .sidebar {
                 margin-left: -280px;
@@ -200,6 +225,9 @@
             <div class="modal-header border-0 p-3 position-absolute top-0 start-0 w-100 d-flex justify-content-between" style="z-index: 1056; background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);">
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 <div class="d-flex align-items-center bg-black rounded px-2" style="opacity: 0.8;">
+                    <button type="button" class="btn btn-link text-white p-2" id="btnShareLink" title="Create Public Link">
+                        <i class="bi bi-link-45deg fs-5"></i>
+                    </button>
                     <button type="button" class="btn btn-link text-white p-2" id="btnRestore" style="display: none;" title="Restore">
                         <i class="bi bi-clock-history fs-5"></i>
                     </button>
@@ -214,8 +242,24 @@
                     </button>
                 </div>
             </div>
+            
+            <!-- Link Copy Tooltip (Pseudo) -->
+            <div id="shareLinkPopup" class="position-absolute top-10 start-50 translate-middle-x bg-white text-dark rounded-pill shadow px-3 py-2 d-none" style="z-index: 1060; margin-top: 60px;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="small fw-bold" id="sharedUrlText"></span>
+                    <button class="btn btn-primary btn-sm rounded-pill px-3" id="btnCopyLink">Copy</button>
+                </div>
+            </div>
             <div class="modal-body p-0 d-flex align-items-center justify-content-center flex-grow-1 overflow-hidden" id="lightboxImageContainer">
             </div>
+
+            <!-- Navigation Arrows -->
+            <button class="lightbox-nav lightbox-prev" id="btnPrevPhoto" title="Previous (Left Arrow)">
+                <i class="bi bi-chevron-left fs-1"></i>
+            </button>
+            <button class="lightbox-nav lightbox-next" id="btnNextPhoto" title="Next (Right Arrow)">
+                <i class="bi bi-chevron-right fs-1"></i>
+            </button>
             
             <!-- Metadata Panel -->
             <div id="metadataPanel" class="bg-white p-4 h-100 d-none overflow-auto" style="width: 360px; z-index: 1057;">

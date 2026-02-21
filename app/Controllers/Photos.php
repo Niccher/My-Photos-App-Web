@@ -11,10 +11,13 @@ class Photos extends BaseController
     {
         $photoModel = new \App\Models\PhotoModel();
         
-        $data['photos'] = $photoModel->where('is_archived', false)->orderBy('taken_at', 'DESC')->findAll();
+        $data['photos'] = $photoModel->where('user_id', auth()->id())
+                                     ->where('is_archived', false)
+                                     ->orderBy('taken_at', 'DESC')
+                                     ->findAll();
         
         // Calculate total storage
-        $totalBytes = $photoModel->selectSum('size')->first()['size'] ?? 0;
+        $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
         $data['storageUsed'] = $this->formatBytes($totalBytes);
         $data['storagePercent'] = min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100); // Assume 1GB quota for display
         
@@ -24,10 +27,14 @@ class Photos extends BaseController
     {
         $photoModel = new \App\Models\PhotoModel();
         // Fetch only photos with location data
-        $data['locations'] = $photoModel->where('latitude IS NOT NULL')->where('longitude IS NOT NULL')->where('is_archived', false)->findAll();
+        $data['locations'] = $photoModel->where('user_id', auth()->id())
+                                        ->where('latitude IS NOT NULL')
+                                        ->where('longitude IS NOT NULL')
+                                        ->where('is_archived', false)
+                                        ->findAll();
         
         // Pass same storage data as index
-        $totalBytes = $photoModel->selectSum('size')->first()['size'] ?? 0;
+        $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
         $data['storageUsed'] = $this->formatBytes($totalBytes);
         $data['storagePercent'] = min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100);
 
@@ -80,6 +87,7 @@ class Photos extends BaseController
             $mime = $isVideo ? $mimeFallback : ($imageInfo['mime'] ?? $mimeFallback);
 
             $data = [
+                'user_id'        => auth()->id(),
                 'filename'       => $file,
                 'path'           => 'uploads/' . $file,
                 'mime_type'      => $mime,
@@ -114,7 +122,7 @@ class Photos extends BaseController
 
     public function upload()
     {
-        ini_set('memory_limit', '512M'); // Temporarily increase memory completely for high-res images
+        ini_set('memory_limit', '512M');
 
         $file = $this->request->getFile('file');
 
@@ -122,26 +130,29 @@ class Photos extends BaseController
             return $this->response->setJSON(['status' => 'error', 'message' => $file ? $file->getErrorString() : 'No file uploaded']);
         }
 
+        // Get info BEFORE move, as move() deletes the temporary file
+        $mimeType = $file->getMimeType();
+        $size = $file->getSize();
         $newName = $file->getRandomName();
+        
         $file->move(FCPATH . 'uploads', $newName);
 
         $photoModel = new \App\Models\PhotoModel();
         $fullPath = FCPATH . 'uploads/' . $newName;
         $thumbnailPath = FCPATH . 'thumbnails/' . $newName;
 
-        $mimeType = $file->getMimeType();
         $isVideo = strpos($mimeType, 'video/') === 0;
-
         $imageInfo = $isVideo ? false : @getimagesize($fullPath);
         $gps = $isVideo ? null : $this->getGps($fullPath);
 
         $data = [
+            'user_id'        => auth()->id(),
             'filename'       => $newName,
             'path'           => 'uploads/' . $newName,
             'mime_type'      => $isVideo ? $mimeType : ($imageInfo['mime'] ?? $mimeType),
             'width'          => $imageInfo ? $imageInfo[0] : null,
             'height'         => $imageInfo ? $imageInfo[1] : null,
-            'size'           => @filesize($fullPath) ?: 0,
+            'size'           => $size,
             'taken_at'       => date('Y-m-d H:i:s'),
             'thumbnail_path' => 'thumbnails/' . $newName,
             'latitude'       => $gps['lat'] ?? null,
@@ -162,17 +173,68 @@ class Photos extends BaseController
         return view('photos/sharing');
     }
 
+    /**
+     * Public Link Sharing
+     */
+    public function generateShareLink($id)
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $shareModel = new \App\Models\SharedLinkModel();
+
+        // Verify ownership
+        $photo = $photoModel->where('user_id', auth()->id())->find($id);
+        if (!$photo) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Photo not found']);
+        }
+
+        // Check for existing link
+        $existing = $shareModel->where('photo_id', $id)->first();
+        if ($existing) {
+            $token = $existing['access_token'];
+        } else {
+            // Generate unique secure token
+            $token = bin2hex(random_bytes(16));
+            $shareModel->insert([
+                'photo_id'     => $id,
+                'access_token' => $token
+            ]);
+        }
+
+        return $this->response->setJSON([
+            'status' => 'success', 
+            'url'    => base_url("s/{$token}")
+        ]);
+    }
+
+    public function viewShared($token)
+    {
+        $shareModel = new \App\Models\SharedLinkModel();
+        $photoModel = new \App\Models\PhotoModel();
+
+        $link = $shareModel->findByToken($token);
+        if (!$link) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Link has expired or is invalid.");
+        }
+
+        $photo = $photoModel->find($link['photo_id']);
+        if (!$photo) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound("Shared photo no longer exists.");
+        }
+
+        return view('photos/view_shared', ['photo' => $photo]);
+    }
+
     public function archive()
     {
         $photoModel = new \App\Models\PhotoModel();
-        $data['photos'] = $photoModel->where('is_archived', true)->orderBy('taken_at', 'DESC')->findAll();
+        $data['photos'] = $photoModel->where('user_id', auth()->id())->where('is_archived', true)->orderBy('taken_at', 'DESC')->findAll();
         return view('photos/archive', $data);
     }
 
     public function trash()
     {
         $photoModel = new \App\Models\PhotoModel();
-        $data['photos'] = $photoModel->onlyDeleted()->orderBy('deleted_at', 'DESC')->findAll();
+        $data['photos'] = $photoModel->where('user_id', auth()->id())->onlyDeleted()->orderBy('deleted_at', 'DESC')->findAll();
         return view('photos/trash', $data);
     }
 
