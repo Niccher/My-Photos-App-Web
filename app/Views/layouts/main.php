@@ -8,12 +8,17 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <!-- Dropzone CSS -->
     <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
     <!-- Custom Style -->
     <link rel="stylesheet" href="<?= base_url('css/style.css') ?>">
+    <script>
+        const BASE_URL = '<?= base_url() ?>';
+    </script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -173,28 +178,50 @@
             <div class="position-sticky d-flex flex-column h-100">
                 <ul class="nav flex-column mb-auto">
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('/')) ? 'active' : '' ?>" href="<?= base_url() ?>">
-                            <i class="bi bi-image"></i> Photos
+                        <a class="nav-link <?= (url_is('/')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url() ?>">
+                            <span><i class="bi bi-image"></i> Photos</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['photos'] ?? 0 ?></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('explore')) ? 'active' : '' ?>" href="<?= base_url('explore') ?>">
-                            <i class="bi bi-search"></i> Explore
+                        <a class="nav-link <?= (url_is('explore')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('explore') ?>">
+                            <span><i class="bi bi-search"></i> Explore</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['explore'] ?? 0 ?></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('sharing')) ? 'active' : '' ?>" href="<?= base_url('sharing') ?>">
-                            <i class="bi bi-people"></i> Sharing
+                        <a class="nav-link <?= (url_is('sharing')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('sharing') ?>">
+                            <span><i class="bi bi-people"></i> Sharing</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['sharing'] ?? 0 ?></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('archive')) ? 'active' : '' ?>" href="<?= base_url('archive') ?>">
-                            <i class="bi bi-archive"></i> Archive
+                        <a class="nav-link <?= (url_is('favorites')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('favorites') ?>">
+                            <span><i class="bi bi-heart"></i> Favorites</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['favorites'] ?? 0 ?></span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('trash')) ? 'active' : '' ?>" href="<?= base_url('trash') ?>">
-                            <i class="bi bi-trash"></i> Trash
+                        <a class="nav-link <?= (url_is('albums')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('albums') ?>">
+                            <span><i class="bi bi-folder2-open"></i> Albums</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['albums'] ?? 0 ?></span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?= (url_is('analytics')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('analytics') ?>">
+                            <span><i class="bi bi-graph-up-arrow"></i> Analytics</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?= (url_is('archive')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('archive') ?>">
+                            <span><i class="bi bi-archive"></i> Archive</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['archive'] ?? 0 ?></span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?= (url_is('trash')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('trash') ?>">
+                            <span><i class="bi bi-trash"></i> Trash</span>
+                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['trash'] ?? 0 ?></span>
                         </a>
                     </li>
                 </ul>
@@ -227,6 +254,12 @@
                 <div class="d-flex align-items-center bg-black rounded px-2" style="opacity: 0.8;">
                     <button type="button" class="btn btn-link text-white p-2" id="btnShareLink" title="Create Public Link">
                         <i class="bi bi-link-45deg fs-5"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnFavorite" title="Favorite">
+                        <i class="bi bi-heart fs-5"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnAddToAlbum" title="Add to Album">
+                        <i class="bi bi-plus-circle fs-5"></i>
                     </button>
                     <button type="button" class="btn btn-link text-white p-2" id="btnRestore" style="display: none;" title="Restore">
                         <i class="bi bi-clock-history fs-5"></i>
@@ -282,6 +315,34 @@
                 <div class="mb-3">
                     <label class="small text-muted d-block">Dimensions</label>
                     <span id="metaDimensions"></span>
+                </div>
+                <div class="mb-3" id="metaExifContainer" style="display:none;">
+                    <label class="small text-muted d-block">Camera</label>
+                    <span id="metaExif" class="small"></span>
+                </div>
+                <div class="mb-3" id="metaLocationContainer" style="display:none;">
+                    <label class="small text-muted d-block">Location</label>
+                    <a href="#" id="metaLocation" target="_blank" class="small text-decoration-none"></a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add to Album Modal -->
+<div class="modal fade" id="addToAlbumModal" tabindex="-1" style="z-index: 1060;">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content bg-dark text-white border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="modal-title fw-bold">Add to Album</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="albumListContainer" class="list-group list-group-flush bg-transparent">
+                    <!-- Populated via JS -->
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    </div>
                 </div>
             </div>
         </div>

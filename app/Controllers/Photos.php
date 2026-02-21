@@ -11,15 +11,18 @@ class Photos extends BaseController
     {
         $photoModel = new \App\Models\PhotoModel();
         
-        $data['photos'] = $photoModel->where('user_id', auth()->id())
-                                     ->where('is_archived', false)
-                                     ->orderBy('taken_at', 'DESC')
-                                     ->findAll();
-        
-        // Calculate total storage
+        $counts = $this->getSidebarCounts();
         $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
-        $data['storageUsed'] = $this->formatBytes($totalBytes);
-        $data['storagePercent'] = min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100); // Assume 1GB quota for display
+        
+        $data = [
+            'photos'         => $photoModel->where('user_id', auth()->id())
+                                             ->where('is_archived', false)
+                                             ->orderBy('taken_at', 'DESC')
+                                             ->findAll(),
+            'storageUsed'    => $this->formatBytes($totalBytes),
+            'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
+            'counts'         => $counts
+        ];
         
         return view('photos/index', $data);
     }
@@ -27,16 +30,19 @@ class Photos extends BaseController
     {
         $photoModel = new \App\Models\PhotoModel();
         // Fetch only photos with location data
-        $data['locations'] = $photoModel->where('user_id', auth()->id())
-                                        ->where('latitude IS NOT NULL')
-                                        ->where('longitude IS NOT NULL')
-                                        ->where('is_archived', false)
-                                        ->findAll();
-        
-        // Pass same storage data as index
+        $counts = $this->getSidebarCounts();
         $totalBytes = $photoModel->where('user_id', auth()->id())->selectSum('size')->first()['size'] ?? 0;
-        $data['storageUsed'] = $this->formatBytes($totalBytes);
-        $data['storagePercent'] = min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100);
+
+        $data = [
+            'locations'      => $photoModel->where('user_id', auth()->id())
+                                           ->where('latitude IS NOT NULL')
+                                           ->where('longitude IS NOT NULL')
+                                           ->where('is_archived', false)
+                                           ->findAll(),
+            'storageUsed'    => $this->formatBytes($totalBytes),
+            'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
+            'counts'         => $counts
+        ];
 
         return view('photos/explore', $data);
     }
@@ -76,15 +82,7 @@ class Photos extends BaseController
             $isVideo = in_array($ext, ['mp4', 'mov', 'webm']);
 
             $imageInfo = $isVideo ? false : @getimagesize($fullPath);
-            $gps = $isVideo ? null : $this->getGps($fullPath);
-            
-            // Fallback for Mime type if getimagesize fails
-            $mimeFallback = '';
-            if (function_exists('mime_content_type')) {
-                $mimeFallback = @mime_content_type($fullPath) ?: '';
-            }
-
-            $mime = $isVideo ? $mimeFallback : ($imageInfo['mime'] ?? $mimeFallback);
+            $metadata = $isVideo ? null : $this->getMergedMetadata($fullPath);
 
             $data = [
                 'user_id'        => auth()->id(),
@@ -94,11 +92,11 @@ class Photos extends BaseController
                 'width'          => $imageInfo ? $imageInfo[0] : null,
                 'height'         => $imageInfo ? $imageInfo[1] : null,
                 'size'           => filesize($fullPath),
-                'taken_at'       => date('Y-m-d H:i:s', filemtime($fullPath)),
+                'taken_at'       => $metadata['taken_at'] ?? date('Y-m-d H:i:s', filemtime($fullPath)),
                 'thumbnail_path' => 'thumbnails/' . $file,
-                'latitude'       => $gps['lat'] ?? null,
-                'longitude'      => $gps['lng'] ?? null,
-                'exif_data'      => null,
+                'latitude'       => $metadata['lat'] ?? null,
+                'longitude'      => $metadata['lng'] ?? null,
+                'exif_data'      => $metadata['exif'] ?? null,
             ];
 
             // Generate thumbnail placeholder if generation fails, or if it's a video
@@ -143,7 +141,7 @@ class Photos extends BaseController
 
         $isVideo = strpos($mimeType, 'video/') === 0;
         $imageInfo = $isVideo ? false : @getimagesize($fullPath);
-        $gps = $isVideo ? null : $this->getGps($fullPath);
+        $metadata = $isVideo ? null : $this->getMergedMetadata($fullPath);
 
         $data = [
             'user_id'        => auth()->id(),
@@ -153,11 +151,11 @@ class Photos extends BaseController
             'width'          => $imageInfo ? $imageInfo[0] : null,
             'height'         => $imageInfo ? $imageInfo[1] : null,
             'size'           => $size,
-            'taken_at'       => date('Y-m-d H:i:s'),
+            'taken_at'       => $metadata['taken_at'] ?? date('Y-m-d H:i:s'),
             'thumbnail_path' => 'thumbnails/' . $newName,
-            'latitude'       => $gps['lat'] ?? null,
-            'longitude'      => $gps['lng'] ?? null,
-            'exif_data'      => null,
+            'latitude'       => $metadata['lat'] ?? null,
+            'longitude'      => $metadata['lng'] ?? null,
+            'exif_data'      => $metadata['exif'] ?? null,
         ];
 
         if (!$isVideo) {
@@ -170,7 +168,29 @@ class Photos extends BaseController
 
     public function sharing()
     {
-        return view('photos/sharing');
+        $photoModel = new \App\Models\PhotoModel();
+        $linkModel = new \App\Models\SharedLinkModel();
+        $shareModel = new \App\Models\PhotoShareModel();
+
+        // 1. Photos I've shared via Public Links
+        $publicShares = $linkModel->select('photos.*, shared_links.access_token')
+            ->join('photos', 'photos.id = shared_links.photo_id')
+            ->where('photos.user_id', auth()->id())
+            ->findAll();
+
+        // 2. Photos others shared WITH me
+        $sharedWithMe = $shareModel->select('photos.*, photo_shares.permission')
+            ->join('photos', 'photos.id = photo_shares.photo_id')
+            ->where('photo_shares.shared_with', auth()->id())
+            ->findAll();
+
+        $data = [
+            'publicShares' => $publicShares,
+            'sharedWithMe' => $sharedWithMe,
+            'counts'       => $this->getSidebarCounts()
+        ];
+
+        return view('photos/sharing', $data);
     }
 
     /**
@@ -224,18 +244,213 @@ class Photos extends BaseController
         return view('photos/view_shared', ['photo' => $photo]);
     }
 
+    public function analytics()
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $linkModel = new \App\Models\SharedLinkModel();
+        $shareModel = new \App\Models\PhotoShareModel();
+        $userId = auth()->id();
+
+        // 1. Storage Stats
+        $totalBytes = $photoModel->where('user_id', $userId)->selectSum('size')->first()['size'] ?? 0;
+        $totalCount = $photoModel->where('user_id', $userId)->countAllResults();
+        
+        // 2. MIME Type Breakdown
+        $mimeStats = $photoModel->where('user_id', $userId)
+            ->select('mime_type, COUNT(*) as count')
+            ->groupBy('mime_type')
+            ->findAll();
+
+        // 3. Monthly Activity (Current Year)
+        $db = \Config\Database::connect();
+        $monthlyQuery = $db->table('photos')
+            ->select("DATE_FORMAT(taken_at, '%M') as month, COUNT(*) as count, MONTH(taken_at) as month_num")
+            ->where('user_id', $userId)
+            ->where('YEAR(taken_at)', date('Y'))
+            ->groupBy('month, month_num')
+            ->orderBy('month_num', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        // 4. Sharing Stats
+        $publicShares = $linkModel->join('photos', 'photos.id = shared_links.photo_id')
+                                   ->where('photos.user_id', $userId)->countAllResults();
+        $internalShares = $shareModel->where('shared_by', $userId)->countAllResults();
+
+        $data = [
+            'totalBytes'     => $totalBytes,
+            'totalCount'     => $totalCount,
+            'storageUsed'    => $this->formatBytes($totalBytes),
+            'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
+            'mimeStats'      => $mimeStats,
+            'monthlyQuery'   => $monthlyQuery,
+            'sharingStats'   => [
+                'public'   => $publicShares,
+                'internal' => $internalShares
+            ],
+            'counts'         => $this->getSidebarCounts()
+        ];
+
+        return view('photos/analytics', $data);
+    }
+
     public function archive()
     {
         $photoModel = new \App\Models\PhotoModel();
-        $data['photos'] = $photoModel->where('user_id', auth()->id())->where('is_archived', true)->orderBy('taken_at', 'DESC')->findAll();
+        $data = [
+            'photos' => $photoModel->where('user_id', auth()->id())->where('is_archived', true)->orderBy('taken_at', 'DESC')->findAll(),
+            'counts' => $this->getSidebarCounts()
+        ];
         return view('photos/archive', $data);
     }
 
     public function trash()
     {
         $photoModel = new \App\Models\PhotoModel();
-        $data['photos'] = $photoModel->where('user_id', auth()->id())->onlyDeleted()->orderBy('deleted_at', 'DESC')->findAll();
+        $data = [
+            'photos' => $photoModel->where('user_id', auth()->id())->onlyDeleted()->orderBy('deleted_at', 'DESC')->findAll(),
+            'counts' => $this->getSidebarCounts()
+        ];
         return view('photos/trash', $data);
+    }
+
+    public function favorites()
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $data = [
+            'title'  => 'Favorites',
+            'photos' => $photoModel->where('user_id', auth()->id())->where('is_favorite', true)->where('is_archived', false)->orderBy('taken_at', 'DESC')->findAll(),
+            'counts' => $this->getSidebarCounts()
+        ];
+        return view('photos/index', $data); // We reuse index for simple filtered views
+    }
+
+    public function albums()
+    {
+        $albumModel = new \App\Models\AlbumModel();
+        $albums = $albumModel->getAlbumsWithThumbs(auth()->id());
+
+        if ($this->request->getGet('json')) {
+            return $this->response->setJSON(['albums' => $albums]);
+        }
+
+        $data = [
+            'albums' => $albums,
+            'counts' => $this->getSidebarCounts()
+        ];
+        return view('photos/albums', $data);
+    }
+
+    public function viewAlbum($id)
+    {
+        $albumModel = new \App\Models\AlbumModel();
+        $album = $albumModel->where('user_id', auth()->id())->find($id);
+        if (!$album) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+
+        $db = \Config\Database::connect();
+        $photos = $db->table('album_photos')
+                     ->join('photos', 'photos.id = album_photos.photo_id')
+                     ->where('album_id', $id)
+                     ->orderBy('added_at', 'DESC')
+                     ->get()->getResultArray();
+
+        $data = [
+            'title'    => $album['name'],
+            'subtitle' => $album['description'],
+            'album'    => $album,
+            'photos'   => $photos,
+            'counts'   => $this->getSidebarCounts()
+        ];
+        return view('photos/index', $data); // Reuse gallery grid
+    }
+
+    public function createAlbum()
+    {
+        $userId = auth()->id();
+        if (!$userId) return $this->response->setJSON(['status' => 'error', 'message' => 'Not authenticated']);
+
+        $albumModel = new \App\Models\AlbumModel();
+        $name = $this->request->getPost('name');
+        if (empty($name)) return $this->response->setJSON(['status' => 'error', 'message' => 'Name is required']);
+
+        $data = [
+            'user_id'     => $userId,
+            'name'        => $name,
+            'description' => $this->request->getPost('description')
+        ];
+
+        if ($albumModel->insert($data)) {
+            return $this->response->setJSON(['status' => 'success', 'id' => $albumModel->getInsertID()]);
+        }
+        
+        return $this->response->setJSON(['status' => 'error', 'message' => 'Failed to create album: ' . print_r($albumModel->errors(), true)]);
+    }
+
+    public function addPhotoToAlbum()
+    {
+        $db = \Config\Database::connect();
+        $builder = $db->table('album_photos');
+        
+        $albumId = $this->request->getPost('album_id');
+        $photoId = $this->request->getPost('photo_id');
+
+        // Check if already in album
+        $exists = $builder->where(['album_id' => $albumId, 'photo_id' => $photoId])->get()->getRow();
+        if ($exists) return $this->response->setJSON(['status' => 'error', 'message' => 'Already in album']);
+
+        $builder->insert([
+            'album_id' => $albumId,
+            'photo_id' => $photoId,
+            'added_at' => date('Y-m-d H:i:s')
+        ]);
+
+        return $this->response->setJSON(['status' => 'success']);
+    }
+
+    public function toggleFavorite($id)
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $photo = $photoModel->where('user_id', auth()->id())->find($id);
+        if (!$photo) return $this->response->setJSON(['status' => 'error', 'message' => 'Photo not found']);
+
+        $newVal = !$photo['is_favorite'];
+        $photoModel->update($id, ['is_favorite' => $newVal]);
+
+        return $this->response->setJSON(['status' => 'success', 'is_favorite' => $newVal]);
+    }
+
+    private function getSidebarCounts()
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $linkModel = new \App\Models\SharedLinkModel();
+        $shareModel = new \App\Models\PhotoShareModel();
+        $userId = auth()->id();
+
+        $photosCount = $photoModel->where('user_id', $userId)->where('is_archived', false)->countAllResults();
+        $exploreCount = $photoModel->where('user_id', $userId)->where('is_archived', false)
+                                   ->where('latitude IS NOT NULL')->where('longitude IS NOT NULL')->countAllResults();
+        
+        // Sharing count: Public links by me + Internal shares with me
+        $publicLinkCount = $linkModel->join('photos', 'photos.id = shared_links.photo_id')
+                                     ->where('photos.user_id', $userId)->countAllResults();
+        $sharedWithMeCount = $shareModel->where('shared_with', $userId)->countAllResults();
+        
+        $archiveCount = $photoModel->where('user_id', $userId)->where('is_archived', true)->countAllResults();
+        $trashCount = $photoModel->where('user_id', $userId)->onlyDeleted()->countAllResults();
+        $favoritesCount = $photoModel->where('user_id', $userId)->where('is_favorite', true)->where('is_archived', false)->countAllResults();
+        
+        $albumModel = new \App\Models\AlbumModel();
+        $albumsCount = $albumModel->where('user_id', $userId)->countAllResults();
+
+        return [
+            'photos'    => $photosCount,
+            'explore'   => $exploreCount,
+            'sharing'   => $publicLinkCount + $sharedWithMeCount,
+            'favorites' => $favoritesCount,
+            'albums'    => $albumsCount,
+            'archive'   => $archiveCount,
+            'trash'     => $trashCount
+        ];
     }
 
     public function archivePhoto($id)
@@ -289,22 +504,47 @@ class Photos extends BaseController
         }
     }
 
-    private function getGps($path)
+    private function getMergedMetadata($path)
     {
         if (!function_exists('exif_read_data')) return null;
 
+        $result = [
+            'taken_at' => null,
+            'lat'      => null,
+            'lng'      => null,
+            'exif'     => null
+        ];
+
         try {
             $exif = @exif_read_data($path);
-            if (isset($exif['GPSLatitude'], $exif['GPSLatitudeRef'], $exif['GPSLongitude'], $exif['GPSLongitudeRef'])) {
-                $lat = $this->getGpsValue($exif['GPSLatitude'], $exif['GPSLatitudeRef']);
-                $lng = $this->getGpsValue($exif['GPSLongitude'], $exif['GPSLongitudeRef']);
-                if ($lat !== null && $lng !== null) {
-                    return ['lat' => $lat, 'lng' => $lng];
-                }
+            if (!$exif) return $result;
+
+            // 1. Extract Date
+            if (isset($exif['DateTimeOriginal'])) {
+                $result['taken_at'] = date('Y-m-d H:i:s', strtotime($exif['DateTimeOriginal']));
+            } elseif (isset($exif['DateTime'])) {
+                $result['taken_at'] = date('Y-m-d H:i:s', strtotime($exif['DateTime']));
             }
+
+            // 2. Extract GPS
+            if (isset($exif['GPSLatitude'], $exif['GPSLatitudeRef'], $exif['GPSLongitude'], $exif['GPSLongitudeRef'])) {
+                $result['lat'] = $this->getGpsValue($exif['GPSLatitude'], $exif['GPSLatitudeRef']);
+                $result['lng'] = $this->getGpsValue($exif['GPSLongitude'], $exif['GPSLongitudeRef']);
+            }
+
+            // 3. Store raw simplified EXIF
+            $simplifiedExif = [];
+            $allowedKeys = ['Make', 'Model', 'Software', 'ExposureTime', 'FNumber', 'ISOSpeedRatings', 'FocalLength', 'Flash'];
+            foreach ($allowedKeys as $key) {
+                if (isset($exif[$key])) $simplifiedExif[$key] = $exif[$key];
+            }
+            $result['exif'] = !empty($simplifiedExif) ? json_encode($simplifiedExif) : null;
+
         } catch (\Exception $e) { }
-        return null;
+
+        return $result;
     }
+
 
     private function getGpsValue($coordinate, $ref)
     {

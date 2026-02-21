@@ -10,13 +10,20 @@ $(document).ready(function () {
     const $lightboxModal = new bootstrap.Modal('#lightboxModal');
     const $lightboxImageContainer = $('#lightboxImageContainer');
     let currentPhotoId = null;
+    let $allPhotos = $('.photo-item');
+    let currentIndex = -1;
 
-    $('.photo-item').on('click', function () {
-        const $this = $(this);
+    function openPhoto(index) {
+        if (index < 0 || index >= $allPhotos.length) return;
+
+        currentIndex = index;
+        const $this = $allPhotos.eq(index);
         const fullUrl = $this.data('full');
         const dataType = $this.data('type') || 'image';
         currentPhotoId = $this.data('id');
         const context = window.location.pathname.split('/').pop() || 'index';
+
+        console.log('Opening photo index:', currentIndex, 'ID:', currentPhotoId);
 
         if (context === 'trash') {
             $('#btnRestore').show();
@@ -28,20 +35,86 @@ $(document).ready(function () {
             $('#btnArchive i').attr('class', context === 'archive' ? 'bi bi-archive-fill fs-5' : 'bi bi-archive fs-5');
         }
 
-        // Populate metadata
-        $('#metaFilename').text($this.data('filename'));
-        $('#metaDate').text($this.data('date'));
-        $('#metaSize').text($this.data('size'));
-        $('#metaDimensions').text($this.data('dimensions'));
+        $('#metaFilename').text($this.data('filename') || 'Unknown');
+        $('#metaDate').text($this.data('date') || '-');
+        $('#metaSize').text($this.data('size') || '-');
+        $('#metaDimensions').text($this.data('dimensions') || '-');
+
+        // Favorite status
+        const isFavorite = $this.data('favorite') == '1';
+        $('#btnFavorite i').attr('class', isFavorite ? 'bi bi-heart-fill text-danger fs-5' : 'bi bi-heart fs-5');
+
+        const photoExif = $this.data('exif');
+        const photoLocation = $this.data('location');
+
+        // Reset and populate EXIF
+        $('#metaExifContainer').hide();
+        if (photoExif) {
+            try {
+                const exif = typeof photoExif === 'string' ? JSON.parse(photoExif) : photoExif;
+                let exifHtml = '';
+                if (exif.Model) exifHtml += `<strong>${exif.Model}</strong><br>`;
+                if (exif.ExposureTime) exifHtml += `Exposure: ${exif.ExposureTime}s, `;
+                if (exif.FNumber) exifHtml += `f/${exif.FNumber}, `;
+                if (exif.ISOSpeedRatings) exifHtml += `ISO ${exif.ISOSpeedRatings}`;
+
+                $('#metaExif').html(exifHtml);
+                $('#metaExifContainer').show();
+            } catch (e) {
+                console.error('Error parsing EXIF:', e);
+            }
+        }
+
+        // Reset and populate Location
+        $('#metaLocationContainer').hide();
+        if (photoLocation) {
+            const parts = photoLocation.split(',');
+            if (parts.length === 2) {
+                const lat = parts[0];
+                const lng = parts[1];
+                $('#metaLocation').attr('href', `https://www.google.com/maps?q=${lat},${lng}`)
+                    .text(`${parseFloat(lat).toFixed(4)}, ${parseFloat(lng).toFixed(4)}`);
+                $('#metaLocationContainer').show();
+            }
+        }
 
         $lightboxImageContainer.empty();
         if (dataType === 'video') {
-            $lightboxImageContainer.append(`<video src="${fullUrl}" class="img-fluid" style="max-height: 100vh;" controls autoplay></video>`);
+            $lightboxImageContainer.append(`<video src="${fullUrl}" class="img-fluid" style="max-height: 100vh; max-width: 100%;" controls autoplay></video>`);
         } else {
-            $lightboxImageContainer.append(`<img src="${fullUrl}" class="img-fluid" style="max-height: 100vh;">`);
+            $lightboxImageContainer.append(`<img src="${fullUrl}" class="img-fluid" style="max-height: 100vh; max-width: 100%; object-fit: contain;">`);
         }
 
+        // Show/hide nav arrows based on position
+        $('#btnPrevPhoto').toggle(currentIndex > 0);
+        $('#btnNextPhoto').toggle(currentIndex < $allPhotos.length - 1);
+
         $lightboxModal.show();
+    }
+
+    $(document).on('click', '.photo-item', function () {
+        // Refresh photo list in case of dynamic changes (AJAX/Masonry)
+        $allPhotos = $('.photo-item');
+        openPhoto($allPhotos.index(this));
+    });
+
+    $('#btnPrevPhoto').on('click', function (e) {
+        e.stopPropagation();
+        openPhoto(currentIndex - 1);
+    });
+
+    $('#btnNextPhoto').on('click', function (e) {
+        e.stopPropagation();
+        openPhoto(currentIndex + 1);
+    });
+
+    // Keyboard Navigation
+    $(document).on('keydown', function (e) {
+        if ($('#lightboxModal').is(':visible')) {
+            if (e.key === 'ArrowLeft') $('#btnPrevPhoto:visible').click();
+            if (e.key === 'ArrowRight') $('#btnNextPhoto:visible').click();
+            if (e.key === 'Escape') $lightboxModal.hide();
+        }
     });
 
     // Pause video when lightbox closes
@@ -49,6 +122,8 @@ $(document).ready(function () {
         $lightboxImageContainer.find('video').each(function () {
             this.pause();
         });
+        currentIndex = -1;
+        $('#shareLinkPopup').addClass('d-none');
     });
 
     $('#btnInfo').on('click', function () {
@@ -59,10 +134,35 @@ $(document).ready(function () {
         $('#metadataPanel').addClass('d-none');
     });
 
+    // Public Sharing Link
+    $('#btnShareLink').on('click', function () {
+        if (!currentPhotoId) return;
+
+        $.post(BASE_URL + 'photos/generate-link/' + currentPhotoId, function (res) {
+            if (res.status === 'success') {
+                $('#sharedUrlText').text(res.url);
+                $('#shareLinkPopup').removeClass('d-none').hide().fadeIn(200);
+            }
+        });
+    });
+
+    $('#btnCopyLink').on('click', function () {
+        const url = $('#sharedUrlText').text();
+        navigator.clipboard.writeText(url).then(() => {
+            const $btn = $(this);
+            const originalText = $btn.text();
+            $btn.text('Copied!').addClass('btn-success').removeClass('btn-primary');
+            setTimeout(() => {
+                $btn.text(originalText).addClass('btn-primary').removeClass('btn-success');
+                $('#shareLinkPopup').fadeOut(300, function () { $(this).addClass('d-none'); });
+            }, 2000);
+        });
+    });
+
     // Photo Actions
     $('#btnArchive').on('click', function () {
         if (!currentPhotoId) return;
-        $.post(window.location.origin + '/hosts/Photos/photos/archive/' + currentPhotoId, function (res) {
+        $.post(BASE_URL + 'photos/archive/' + currentPhotoId, function (res) {
             if (res.status === 'success') {
                 $lightboxModal.hide();
                 $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
@@ -75,7 +175,7 @@ $(document).ready(function () {
         const context = window.location.pathname.split('/').pop() || 'index';
         if (context === 'trash' && !confirm('Permanently delete this photo? This cannot be undone.')) return;
 
-        $.post(window.location.origin + '/hosts/Photos/photos/delete/' + currentPhotoId, function (res) {
+        $.post(BASE_URL + 'photos/delete/' + currentPhotoId, function (res) {
             if (res.status === 'success') {
                 $lightboxModal.hide();
                 $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
@@ -85,10 +185,91 @@ $(document).ready(function () {
 
     $('#btnRestore').on('click', function () {
         if (!currentPhotoId) return;
-        $.post(window.location.origin + '/hosts/Photos/photos/restore/' + currentPhotoId, function (res) {
+        $.post(BASE_URL + 'photos/restore/' + currentPhotoId, function (res) {
             if (res.status === 'success') {
                 $lightboxModal.hide();
                 $(`[data-id="${currentPhotoId}"]`).fadeOut(300, function () { $(this).remove(); });
+            }
+        });
+    });
+
+    // Favorites Logic
+    $('#btnFavorite').on('click', function () {
+        if (!currentPhotoId) return;
+        const $btn = $(this);
+
+        $.post(BASE_URL + 'photos/favorite/' + currentPhotoId, function (res) {
+            if (res.status === 'success') {
+                const $item = $(`[data-id="${currentPhotoId}"]`);
+                $item.data('favorite', res.is_favorite ? '1' : '0');
+
+                // Toggle heart in lightbox
+                $btn.find('i').attr('class', res.is_favorite ? 'bi bi-heart-fill text-danger fs-5' : 'bi bi-heart fs-5');
+
+                // Toggle heart on grid item
+                if (res.is_favorite) {
+                    if ($item.find('.bi-heart-fill').length === 0) {
+                        $item.prepend('<div class="position-absolute top-0 start-0 p-2" style="z-index: 5;"><i class="bi bi-heart-fill text-danger shadow-sm"></i></div>');
+                    }
+                } else {
+                    $item.find('.bi-heart-fill').parent().remove();
+                    // If we are on the favorites page, remove the item from view
+                    if (window.location.pathname.includes('favorites')) {
+                        $lightboxModal.hide();
+                        $item.fadeOut(300, function () { $(this).remove(); });
+                    }
+                }
+            }
+        });
+    });
+
+    // Albums Logic
+    const $addToAlbumModal = new bootstrap.Modal('#addToAlbumModal');
+
+    $('#btnAddToAlbum').on('click', function () {
+        if (!currentPhotoId) return;
+        $addToAlbumModal.show();
+
+        const $container = $('#albumListContainer');
+
+        $container.html('<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>');
+
+        $.get(BASE_URL + 'albums', { json: 1 }, function (res) {
+            if (res.albums) {
+                if (res.albums.length === 0) {
+                    $container.html('<div class="text-center p-3 text-muted small">No albums found. Create one first!</div>');
+                    return;
+                }
+
+                let html = '';
+                res.albums.forEach(album => {
+                    html += `<button type="button" class="list-group-item list-group-item-action bg-transparent text-white border-secondary small py-2 btn-confirm-add" data-album-id="${album.id}">${album.name}</button>`;
+                });
+                $container.html(html);
+            }
+        });
+    });
+
+    $(document).on('click', '.btn-confirm-add', function () {
+        const albumId = $(this).data('album-id');
+
+        $.post(BASE_URL + 'albums/add-photo', { album_id: albumId, photo_id: currentPhotoId }, function (res) {
+            if (res.status === 'success') {
+                $addToAlbumModal.hide();
+                alert('Added to album!');
+            } else {
+                alert(res.message);
+            }
+        });
+    });
+
+    $('#formCreateAlbum').on('submit', function (e) {
+        e.preventDefault();
+        $.post(BASE_URL + 'albums/create', $(this).serialize(), function (res) {
+            if (res.status === 'success') {
+                location.reload();
+            } else {
+                alert(res.message);
             }
         });
     });

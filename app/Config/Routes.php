@@ -13,6 +13,7 @@ $routes->group('', ['filter' => 'session'], function ($routes) {
     $routes->post('upload', 'Photos::upload');
     $routes->get('explore', 'Photos::explore');
     $routes->get('sharing', 'Photos::sharing');
+    $routes->get('analytics', 'Photos::analytics');
     $routes->get('archive', 'Photos::archive');
     $routes->get('trash', 'Photos::trash');
 
@@ -25,6 +26,13 @@ $routes->group('', ['filter' => 'session'], function ($routes) {
     $routes->post('photos/share/(:num)',   'Photos::sharePhoto/$1');
     $routes->post('photos/unshare/(:num)', 'Photos::unsharePhoto/$1');
     $routes->post('photos/generate-link/(:num)', 'Photos::generateShareLink/$1');
+    $routes->get('favorites',              'Photos::favorites');
+    $routes->get('albums',                 'Photos::albums');
+    $routes->get('albums/(:num)',          'Photos::viewAlbum/$1');
+    $routes->post('albums/create',         'Photos::createAlbum');
+    $routes->post('albums/add-photo',      'Photos::addPhotoToAlbum');
+    $routes->post('photos/favorite/(:num)','Photos::toggleFavorite/$1');
+
     $routes->get('users/search',           'Photos::searchUsers');
 });
 
