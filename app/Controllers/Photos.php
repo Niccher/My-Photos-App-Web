@@ -53,7 +53,7 @@ class Photos extends BaseController
         $thumbnailPath = FCPATH . 'thumbnails/';
 
         $files = scandir($uploadPath);
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'webm'];
         $count = 0;
 
         foreach ($files as $file) {
@@ -66,8 +66,10 @@ class Photos extends BaseController
             if ($photoModel->where('filename', $file)->first()) continue;
 
             $fullPath = $uploadPath . $file;
-            $imageInfo = @getimagesize($fullPath);
-            $gps = $this->getGps($fullPath);
+            $isVideo = in_array($ext, ['mp4', 'mov', 'webm']);
+
+            $imageInfo = $isVideo ? false : @getimagesize($fullPath);
+            $gps = $isVideo ? null : $this->getGps($fullPath);
             
             // Fallback for Mime type if getimagesize fails
             $mimeFallback = '';
@@ -75,12 +77,14 @@ class Photos extends BaseController
                 $mimeFallback = @mime_content_type($fullPath) ?: '';
             }
 
+            $mime = $isVideo ? $mimeFallback : ($imageInfo['mime'] ?? $mimeFallback);
+
             $data = [
                 'filename'       => $file,
                 'path'           => 'uploads/' . $file,
-                'mime_type'      => $imageInfo['mime'] ?? $mimeFallback,
-                'width'          => $imageInfo[0] ?? null,
-                'height'         => $imageInfo[1] ?? null,
+                'mime_type'      => $mime,
+                'width'          => $imageInfo ? $imageInfo[0] : null,
+                'height'         => $imageInfo ? $imageInfo[1] : null,
                 'size'           => filesize($fullPath),
                 'taken_at'       => date('Y-m-d H:i:s', filemtime($fullPath)),
                 'thumbnail_path' => 'thumbnails/' . $file,
@@ -89,11 +93,16 @@ class Photos extends BaseController
                 'exif_data'      => null,
             ];
 
-            // Generate thumbnail placeholder if generation fails
-            try {
-                $this->generateThumbnail($fullPath, $thumbnailPath . $file);
-            } catch (\Exception $e) {
-                // Log and continue, photo will use default or broken image token
+            // Generate thumbnail placeholder if generation fails, or if it's a video
+            if ($isVideo) {
+                // For videos, point the thumbnail path to a default video icon we can create later, or just use the same file path and the frontend can handle it
+                // We'll update the frontend to show a video icon if mime_type starts with video/
+            } else {
+                try {
+                    $this->generateThumbnail($fullPath, $thumbnailPath . $file);
+                } catch (\Exception $e) {
+                    // Log and continue, photo will use default or broken image token
+                }
             }
 
             $photoModel->insert($data);
@@ -120,15 +129,18 @@ class Photos extends BaseController
         $fullPath = FCPATH . 'uploads/' . $newName;
         $thumbnailPath = FCPATH . 'thumbnails/' . $newName;
 
-        $imageInfo = @getimagesize($fullPath);
-        $gps = $this->getGps($fullPath);
+        $mimeType = $file->getMimeType();
+        $isVideo = strpos($mimeType, 'video/') === 0;
+
+        $imageInfo = $isVideo ? false : @getimagesize($fullPath);
+        $gps = $isVideo ? null : $this->getGps($fullPath);
 
         $data = [
             'filename'       => $newName,
             'path'           => 'uploads/' . $newName,
-            'mime_type'      => $imageInfo['mime'] ?? $file->getMimeType(),
-            'width'          => $imageInfo[0] ?? null,
-            'height'         => $imageInfo[1] ?? null,
+            'mime_type'      => $isVideo ? $mimeType : ($imageInfo['mime'] ?? $mimeType),
+            'width'          => $imageInfo ? $imageInfo[0] : null,
+            'height'         => $imageInfo ? $imageInfo[1] : null,
             'size'           => @filesize($fullPath) ?: 0,
             'taken_at'       => date('Y-m-d H:i:s'),
             'thumbnail_path' => 'thumbnails/' . $newName,
@@ -137,7 +149,9 @@ class Photos extends BaseController
             'exif_data'      => null,
         ];
 
-        $this->generateThumbnail($fullPath, $thumbnailPath);
+        if (!$isVideo) {
+            $this->generateThumbnail($fullPath, $thumbnailPath);
+        }
         $photoModel->insert($data);
 
         return $this->response->setJSON(['status' => 'success', 'message' => 'Uploaded successfully.', 'id' => $photoModel->getInsertID()]);

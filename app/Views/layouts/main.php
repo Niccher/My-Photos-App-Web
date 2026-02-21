@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Dropzone CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
     <!-- Custom Style -->
     <link rel="stylesheet" href="<?= base_url('css/style.css') ?>">
     <style>
@@ -110,10 +112,9 @@
             <button class="btn btn-outline-primary me-2" id="btnScan">
                 <i class="bi bi-arrow-repeat"></i> <span class="d-none d-md-inline">Scan</span>
             </button>
-            <button class="btn btn-primary" id="btnUpload" onclick="document.getElementById('fileInput').click()">
-                <i class="bi bi-plus-lg"></i> <span class="d-none d-md-inline">Upload</span>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-cloud-upload"></i> <span class="d-none d-md-inline">Upload</span>
             </button>
-            <input type="file" id="fileInput" style="display: none;" accept="image/*" multiple>
         </div>
     </div>
 </nav>
@@ -124,27 +125,27 @@
             <div class="position-sticky d-flex flex-column h-100">
                 <ul class="nav flex-column mb-auto">
                     <li class="nav-item">
-                        <a class="nav-link active" href="#">
+                        <a class="nav-link <?= (url_is('/')) ? 'active' : '' ?>" href="<?= base_url() ?>">
                             <i class="bi bi-image"></i> Photos
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link <?= (url_is('explore')) ? 'active' : '' ?>" href="<?= base_url('explore') ?>">
                             <i class="bi bi-search"></i> Explore
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link <?= (url_is('sharing')) ? 'active' : '' ?>" href="<?= base_url('sharing') ?>">
                             <i class="bi bi-people"></i> Sharing
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link <?= (url_is('archive')) ? 'active' : '' ?>" href="<?= base_url('archive') ?>">
                             <i class="bi bi-archive"></i> Archive
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link <?= (url_is('trash')) ? 'active' : '' ?>" href="<?= base_url('trash') ?>">
                             <i class="bi bi-trash"></i> Trash
                         </a>
                     </li>
@@ -169,10 +170,90 @@
     </div>
 </div>
 
+<!-- Lightbox Modal (Global) -->
+<div class="modal fade" id="lightboxModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-black border-0 flex-row">
+            <div class="modal-header border-0 p-3 position-absolute top-0 start-0 w-100 d-flex justify-content-between" style="z-index: 1056; background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="d-flex align-items-center bg-black rounded px-2" style="opacity: 0.8;">
+                    <button type="button" class="btn btn-link text-white p-2" id="btnRestore" style="display: none;" title="Restore">
+                        <i class="bi bi-clock-history fs-5"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnArchive" title="Archive/Unarchive">
+                        <i class="bi bi-archive fs-5"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnDelete" title="Delete">
+                        <i class="bi bi-trash fs-5"></i>
+                    </button>
+                    <button type="button" class="btn btn-link text-white p-2 ms-2 border-start border-secondary" id="btnInfo" title="Info">
+                        <i class="bi bi-info-circle fs-5"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center flex-grow-1 overflow-hidden" id="lightboxImageContainer">
+            </div>
+            
+            <!-- Metadata Panel -->
+            <div id="metadataPanel" class="bg-white p-4 h-100 d-none overflow-auto" style="width: 360px; z-index: 1057;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">Details</h5>
+                    <button type="button" class="btn-close" id="btnCloseMetadata"></button>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted d-block">Filename</label>
+                    <span id="metaFilename" class="text-break"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted d-block">Created</label>
+                    <span id="metaDate"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted d-block">Size</label>
+                    <span id="metaSize"></span>
+                </div>
+                <div class="mb-3">
+                    <label class="small text-muted d-block">Dimensions</label>
+                    <span id="metaDimensions"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal (Dropzone) -->
+<div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Photos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form action="<?= base_url('upload') ?>" class="dropzone border-primary border-dashed rounded-3" id="photoDropzone" style="background: #f8f9fa;">
+                    <div class="dz-message needsclick">
+                        <i class="bi bi-cloud-arrow-up display-4 text-primary mb-3"></i><br>
+                        <h4>Drop photos here or click to upload.</h4>
+                        <span class="text-muted note needsclick">(This is just a demo dropzone. Selected files are actually uploaded.)</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="location.reload()">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <!-- Bootstrap 5 Bundle JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Dropzone JS -->
+<script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+<script>
+    Dropzone.autoDiscover = false;
+</script>
 <!-- Custom JS -->
 <script src="<?= base_url('js/app.js') ?>"></script>
 </body>

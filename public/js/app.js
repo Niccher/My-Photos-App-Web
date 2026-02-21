@@ -8,12 +8,13 @@ $(document).ready(function () {
 
     // Lightbox Logic
     const $lightboxModal = new bootstrap.Modal('#lightboxModal');
-    const $lightboxImage = $('#lightboxImage');
+    const $lightboxImageContainer = $('#lightboxImageContainer');
     let currentPhotoId = null;
 
     $('.photo-item').on('click', function () {
         const $this = $(this);
         const fullUrl = $this.data('full');
+        const dataType = $this.data('type') || 'image';
         currentPhotoId = $this.data('id');
         const context = window.location.pathname.split('/').pop() || 'index';
 
@@ -33,8 +34,21 @@ $(document).ready(function () {
         $('#metaSize').text($this.data('size'));
         $('#metaDimensions').text($this.data('dimensions'));
 
-        $lightboxImage.attr('src', fullUrl);
+        $lightboxImageContainer.empty();
+        if (dataType === 'video') {
+            $lightboxImageContainer.append(`<video src="${fullUrl}" class="img-fluid" style="max-height: 100vh;" controls autoplay></video>`);
+        } else {
+            $lightboxImageContainer.append(`<img src="${fullUrl}" class="img-fluid" style="max-height: 100vh;">`);
+        }
+
         $lightboxModal.show();
+    });
+
+    // Pause video when lightbox closes
+    document.getElementById('lightboxModal').addEventListener('hidden.bs.modal', event => {
+        $lightboxImageContainer.find('video').each(function () {
+            this.pause();
+        });
     });
 
     $('#btnInfo').on('click', function () {
@@ -98,5 +112,25 @@ $(document).ready(function () {
         });
     });
 
-    // Dropzone logic is handled automatically by the dropzone class in the HTML.
+    // Dropzone Initialization
+    if ($('#photoDropzone').length) {
+        let myDropzone = new Dropzone("#photoDropzone", {
+            paramName: "file",
+            maxFilesize: 250, // MB
+            acceptedFiles: "image/*,video/*",
+            timeout: 60000,
+            dictDefaultMessage: "Drop photos here or click to upload",
+            init: function () {
+                this.on("queuecomplete", function (file) {
+                    // Reload page when all uploads in the queue are complete
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                });
+                this.on("error", function (file, message) {
+                    console.error("Upload Error:", message);
+                });
+            }
+        });
+    }
 });

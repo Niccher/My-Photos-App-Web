@@ -26,9 +26,15 @@
              data-full="<?= base_url($photo['path']) ?>"
              data-filename="<?= $photo['filename'] ?>"
              data-size="<?= round($photo['size'] / 1024 / 1024, 2) ?> MB"
-             data-dimensions="<?= $photo['width'] ?> x <?= $photo['height'] ?>"
-             data-date="<?= date('M d, Y H:i', strtotime($photo['taken_at'])) ?>">
-            <img src="<?= base_url($photo['thumbnail_path']) ?>" alt="<?= $photo['filename'] ?>" loading="lazy">
+             data-dimensions="<?= $photo['width'] ? $photo['width'].' x '.$photo['height'] : 'Video' ?>"
+             data-date="<?= date('M d, Y H:i', strtotime($photo['taken_at'])) ?>"
+             data-type="<?= strpos($photo['mime_type'], 'video/') === 0 ? 'video' : 'image' ?>">
+            <?php if (strpos($photo['mime_type'], 'video/') === 0): ?>
+                <video src="<?= base_url($photo['path']) ?>" class="w-100 h-100 object-fit-cover" muted loop preload="metadata" onmouseover="this.play()" onmouseout="this.pause()"></video>
+                <div class="position-absolute bottom-0 end-0 p-1 m-1 bg-dark bg-opacity-75 text-white rounded small" style="pointer-events: none;"><i class="bi bi-play-btn me-1"></i>Video</div>
+            <?php else: ?>
+                <img src="<?= base_url($photo['thumbnail_path']) ?>" alt="<?= $photo['filename'] ?>" loading="lazy">
+            <?php endif; ?>
         </div>
         
     <?php endforeach; ?>
