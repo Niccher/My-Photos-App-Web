@@ -27,9 +27,9 @@ class Database extends Config
     public array $default = [
         'DSN'          => '',
         'hostname'     => 'localhost',
-        'username'     => 'root',
-        'password'     => '',
-        'database'     => 'photos_app',
+        'username'     => 'chegecac_photo_usr',
+        'password'     => 'V-0OFQ{&3)1#',
+        'database'     => 'chegecac_photos_app',
         'DBDriver'     => 'MySQLi',
         'DBPrefix'     => '',
         'pConnect'     => false,

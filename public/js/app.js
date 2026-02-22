@@ -282,16 +282,14 @@ $(document).ready(function () {
     });
 
     // --- Search Logic ---
-    let searchTimer;
-    $('#searchInput').on('input', function () {
-        clearTimeout(searchTimer);
-        const q = $(this).val();
-        searchTimer = setTimeout(() => {
+    $('#searchInput').on('keypress', function (e) {
+        if (e.which === 13) { // Enter key
+            const q = $(this).val();
             const url = new URL(window.location.href);
             if (q) url.searchParams.set('q', q);
             else url.searchParams.delete('q');
             window.location.href = url.href;
-        }, 800);
+        }
     });
 
     // --- Bulk Selection Logic ---

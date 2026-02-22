@@ -139,12 +139,12 @@
         <a class="navbar-brand" href="<?= base_url() ?>">
             <i class="bi bi-images"></i> Photos
         </a>
-        <div class="ms-3 flex-grow-1 d-none d-lg-block" style="max-width: 400px;">
+        <form class="ms-3 flex-grow-1 d-none d-lg-block" style="max-width: 400px;" onsubmit="return false;">
             <div class="input-group input-group-sm">
                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
                 <input type="text" id="searchInput" class="form-control bg-light border-start-0" placeholder="Search photos..." value="<?= $searchQuery ?? '' ?>">
             </div>
-        </div>
+        </form>
         <div class="ms-auto d-flex align-items-center gap-2">
             <button class="btn btn-outline-secondary btn-sm px-3 d-none d-sm-inline-block" id="btnToggleSelect" title="Select photos">
                 <i class="bi bi-check2-square"></i> <span id="selectModeText">Select</span>
@@ -199,9 +199,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link <?= (url_is('sharing')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('sharing') ?>">
-                            <span><i class="bi bi-people"></i> Sharing</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['sharing'] ?? 0 ?></span>
+                        <a class="nav-link <?= (url_is('memories')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('memories') ?>">
+                            <span><i class="bi bi-calendar-event"></i> Memories</span>
                         </a>
                     </li>
                     <li class="nav-item">

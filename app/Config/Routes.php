@@ -7,7 +7,14 @@ use CodeIgniter\Router\RouteCollection;
  */
 
 // All app routes require an authenticated session
-$routes->group('', ['filter' => 'session'], function ($routes) {
+// API Auth
+// API Auth
+$routes->get('test-ping', 'TestAuth::ping', ['filter' => null]);
+$routes->get('api/test', function() { return 'API Test - No Filter'; }, ['filter' => null]);
+$routes->post('api/login', 'Api\Auth::login', ['filter' => null]);
+
+// All app routes require an authenticated session or token
+$routes->group('', ['filter' => 'chain'], function ($routes) {
     $routes->get('/', 'Photos::index');
     $routes->get('scan', 'Photos::scan');
     $routes->post('upload', 'Photos::upload');
@@ -27,6 +34,7 @@ $routes->group('', ['filter' => 'session'], function ($routes) {
     $routes->post('photos/unshare/(:num)', 'Photos::unsharePhoto/$1');
     $routes->post('photos/generate-link/(:num)', 'Photos::generateShareLink/$1');
     $routes->get('favorites',              'Photos::favorites');
+    $routes->get('memories',               'Photos::memories');
     $routes->get('albums',                 'Photos::albums');
     $routes->get('albums/(:num)',          'Photos::viewAlbum/$1');
     $routes->post('albums/create',         'Photos::createAlbum');

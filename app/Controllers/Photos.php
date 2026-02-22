@@ -406,6 +406,42 @@ class Photos extends BaseController
         return view('photos/index', $data); // We reuse index for simple filtered views
     }
 
+    public function memories()
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $userId = auth()->id();
+        
+        $counts = $this->getSidebarCounts();
+        
+        // Define milestones
+        $today = date('m-d');
+        $thisYear = date('Y');
+        $sixMonthsDate = date('Y-m-d', strtotime('-6 months'));
+        
+        // Fetch photos taken on this day in past years
+        $pastYearsPhotos = $photoModel->where('user_id', $userId)
+                                      ->where('is_archived', false)
+                                      ->where("DATE_FORMAT(taken_at, '%m-%d') =", $today)
+                                      ->where("YEAR(taken_at) <", $thisYear)
+                                      ->orderBy('taken_at', 'DESC')
+                                      ->findAll();
+                                      
+        // Fetch photos from exactly 6 months ago
+        $sixMonthsPhotos = $photoModel->where('user_id', $userId)
+                                      ->where('is_archived', false)
+                                      ->where("DATE(taken_at) =", $sixMonthsDate)
+                                      ->orderBy('taken_at', 'DESC')
+                                      ->findAll();
+
+        $data = [
+            'pastYearsPhotos' => $pastYearsPhotos,
+            'sixMonthsPhotos' => $sixMonthsPhotos,
+            'counts'          => $counts
+        ];
+
+        return view('photos/memories', $data);
+    }
+
     public function albums()
     {
         $albumModel = new \App\Models\AlbumModel();
@@ -520,6 +556,18 @@ class Photos extends BaseController
         $trashCount = $photoModel->where('user_id', $userId)->onlyDeleted()->countAllResults();
         $favoritesCount = $photoModel->where('user_id', $userId)->where('is_favorite', true)->where('is_archived', false)->countAllResults();
         
+        // Memories count: Photos taken on this day in past years or exactly 6 months ago
+        $today = date('m-d');
+        $sixMonthsAgo = date('Y-m-d', strtotime('-6 months'));
+        
+        $memoriesCount = $photoModel->where('user_id', $userId)
+                                    ->where('is_archived', false)
+                                    ->groupStart()
+                                        ->where("DATE_FORMAT(taken_at, '%m-%d') =", $today)
+                                        ->orWhere("DATE(taken_at) =", $sixMonthsAgo)
+                                    ->groupEnd()
+                                    ->countAllResults();
+        
         $albumModel = new \App\Models\AlbumModel();
         $albumsCount = $albumModel->where('user_id', $userId)->countAllResults();
 
@@ -529,6 +577,7 @@ class Photos extends BaseController
             'sharing'   => $publicLinkCount + $sharedWithMeCount,
             'favorites' => $favoritesCount,
             'albums'    => $albumsCount,
+            'memories'  => $memoriesCount,
             'archive'   => $archiveCount,
             'trash'     => $trashCount
         ];
