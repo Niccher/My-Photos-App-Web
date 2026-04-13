@@ -1,62 +1,114 @@
 # 📸 Photos: Next-Gen Media Management
 
-A high-performance, technically sophisticated web application built for the modern digital archivist. **Photos** provides a seamless, secure, and intelligent environment to manage, discover, and relive your media collections.
+A high-performance, technically sophisticated web application built for the modern digital archivist. **Photos** provides a seamless, secure, and intelligent environment to manage, discover, and relive your media collections through advanced search and geospatial visualization.
 
 ---
 
-## ⚡ Core Pillars
+## 📋 Prerequisites
 
-### 1. High-Speed Discovery & Search
-- **Multidimensional Search**: Query your library using filenames, EXIF metadata (Camera Model, Software), or temporal filters. 
-- **Lightning-Fast UI**: Integrated debounced search with natural "Enter-to-Submit" triggers to prevent disruptive reloads.
-- **Geospatial Explore**: Native **Leaflet.js** integration. Visualize your journey through interactive Markers and high-density **Heatmaps** powered by embedded GPS metadata.
+Before you begin, ensure you have the following installed on your machine:
 
-### 2. Intelligent Organization
-- **Smart Memories**: Automatically surfaces "On This Day" retrospectives from past years and 6-month timeline highlights.
-- **Dynamic Albums**: Create structured collections with instant assignment and curated grid layouts.
-- **Bulk Orchestration**: Multi-select mode for batch operations: mass Archiving, Favoriting, Deletion, and Album Assignment.
-
-### 3. Analytics & Insights
-- **Heuristic Dashboard**: Real-time telemetry on storage consumption, MIME-type distribution, and monthly upload velocity.
-- **Public/Internal Metrics**: Track sharing activity and link generation statistics at a glance.
+- **Docker Desktop**: Version 20.10+
+- **Docker Compose**: Version 2.0+
+- **Git**: For version control
+- **Composer**: (Optional) For local development without Docker
 
 ---
 
-## 🛠 Technical Architecture
+## 🚀 Quick Start (The Docker Way)
 
-- **Backend**: **CodeIgniter 4** (PHP 8.2+) — Utilizing a robust MVC architecture with high-security route grouping.
-- **Security**: Powered by **CodeIgniter Shield**. Enterprise-grade session management, password hashing, and role-based data boundaries.
-- **Geospatial Engine**: **Leaflet.js** for high-performance GIS rendering on the client side.
-- **Data Layer**: Optimized MySQL/MariaDB queries with advanced `DATE_FORMAT` and `GROUP BY` patterns for efficient time-series grouping.
-- **Frontend**: **Bootstrap 5** with a sleek, dark-themed dashboard and HSL-tailored visual tokens.
+The fastest way to get your environment up and running is using Docker Compose. This project is pre-configured with a hardened three-tier architecture.
 
----
+### 1. Build and Run
+Run the following command in the project root:
+```bash
+docker compose up -d --build
+```
 
-## 🚀 The AI Roadmap: "Deep Intelligence"
+### 2. Access the Application
+Once the containers are healthy, access the services via these URLs:
 
-We are currently architecting a **Python-based AI Sidecar** to bring state-of-the-art vision models directly to your server:
-
-- **OCR (Optical Character Recognition)**: Extracting searchable text from documents and screenshots using **Tesseract**.
-- **Neural Object Detection**: Automated tagging of pets, vehicles, and landscapes using **YOLO/MobileNet**.
-- **Semantic Scene Understanding**: Advanced indexing using **CLIP** to allow natural language queries like *"Sunset at the beach with mountains"*.
-
----
-
-## 📦 Deployment
-
-### Prerequisites
-- PHP 8.1+ (with GD/Imagick for thumbnail processing)
-- MySQL 8.0+ or MariaDB 10.11+
-- Composer
-
-### Installation
-1. Clone the repository to your server.
-2. Run `composer install` to pull in dependencies (Shield, etc.).
-3. Configure your `.env` with database credentials and `app.baseURL`.
-4. Run migrations: `php spark migrate`.
-5. Start your server: `php spark serve`.
+| Service | URL | Port |
+| :--- | :--- | :--- |
+| **App** | [http://localhost:8080](http://localhost:8080) | 8080 |
+| **phpMyAdmin** | [http://localhost:8081](http://localhost:8081) | 8081 |
 
 ---
 
-## 🛡 License
+## 📂 Directory Structure
+
+```text
+.
+├── app/                # Application logic (Controllers, Models, Views)
+├── public/             # Entry point (index.php, CSS, JS, Images)
+├── system/             # CodeIgniter 4 framework core
+├── writable/           # Temporary files, logs, and uploads (Auto-managed)
+├── docker/             # Docker configuration files (PHP/Apache)
+├── Dockerfile          # Production-hardened application image
+├── docker-compose.yml  # Service orchestration
+└── .dockerignore       # Build optimization rules
+```
+
+> [!NOTE]
+> The `writable/` directory is critical for application state. In the Docker environment, permissions are managed automatically via the entrypoint script.
+
+---
+
+## ⚙️ Environment Configuration
+
+1. **Setup `.env`**: Copy the provided template to create your environment file.
+   ```bash
+   cp .env.docker .env
+   ```
+2. **Database Connectivity**: The Docker environment uses `db` as the hostname. Ensure your `.env` matches the services in `docker-compose.yml`.
+
+---
+
+## 🏗️ Optimization & Build Details
+
+This project uses a **Zero-Junk Build** strategy via the `.dockerignore` file.
+
+- **Weight Reduction**: Strips `node_modules`, `.git`, and documentation from the final image.
+- **Security**: Ensures sensitive local logs and cache files are never baked into the container image.
+- **Speed**: Reduces the Docker build context size, leading to significantly faster deployments.
+
+---
+
+## 🗄️ Database Migrations
+
+To run CodeIgniter 4 migrations within the containerized environment, use the following `docker exec` command:
+
+```bash
+docker exec -it photos-app php spark migrate
+```
+
+- **Seeders**: `docker exec -it photos-app php spark db:seed [SeederName]`
+- **Status**: `docker exec -it photos-app php spark migrate:status`
+
+---
+
+## 🛡️ Security & Permissions
+
+- **Principle of Least Privilege**: The application runs under the `www-data` user.
+- **Writable Directory**: The `docker-entrypoint.sh` script automatically ensures the `writable/` folder structure exists and has the correct permissions (`777` for the group/user) upon container startup.
+- **Production Hardening**: The image is based on `php:8.2-apache`, with `mod_rewrite` enabled and `opcache` tuned for high-performance script execution.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the Project.
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the Branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+Please ensure your code follows the **PSR-12** coding standard.
+
+---
+
+## 📜 License
+
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

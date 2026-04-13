@@ -2,83 +2,92 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title><?= lang('Errors.badRequest') ?></title>
-
+    <title>Bad Request — Photos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        div.logo {
-            height: 200px;
-            width: 155px;
-            display: inline-block;
-            opacity: 0.08;
-            position: absolute;
-            top: 2rem;
-            left: 50%;
-            margin-left: -73px;
-        }
+        * { font-family: 'Inter', sans-serif; }
         body {
-            height: 100%;
-            background: #fafafa;
-            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-            color: #777;
-            font-weight: 300;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+            color: #fff;
+            margin: 0;
         }
-        h1 {
-            font-weight: lighter;
-            letter-spacing: normal;
-            font-size: 3rem;
-            margin-top: 0;
-            margin-bottom: 0;
-            color: #222;
-        }
-        .wrap {
-            max-width: 1024px;
-            margin: 5rem auto;
-            padding: 2rem;
-            background: #fff;
+        .error-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 24px;
+            padding: 3rem 2rem;
+            width: 100%;
+            max-width: 500px;
             text-align: center;
-            border: 1px solid #efefef;
-            border-radius: 0.5rem;
-            position: relative;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
         }
-        pre {
-            white-space: normal;
-            margin-top: 1.5rem;
+        .error-icon {
+            font-size: 5rem;
+            background: linear-gradient(135deg, #fbc2eb, #a6c1ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 1.5rem;
+            display: inline-block;
         }
-        code {
-            background: #fafafa;
-            border: 1px solid #efefef;
-            padding: 0.5rem 1rem;
-            border-radius: 5px;
-            display: block;
+        .error-code {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #a6c1ee;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
         }
-        p {
-            margin-top: 1.5rem;
+        .error-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
         }
-        .footer {
-            margin-top: 2rem;
-            border-top: 1px solid #efefef;
-            padding: 1em 2em 0 2em;
-            font-size: 85%;
-            color: #999;
+        .error-desc {
+            color: rgba(255,255,255,0.6);
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 2rem;
         }
-        a:active,
-        a:link,
-        a:visited {
-            color: #dd4814;
+        .btn-home {
+            background: linear-gradient(135deg, #4285f4, #00c6ff);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 600;
+            padding: 0.8rem 2rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+        .btn-home:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(66,133,244,0.4);
+            color: #fff;
         }
     </style>
 </head>
 <body>
-<div class="wrap">
-    <h1>400</h1>
-
-    <p>
-        <?php if (ENVIRONMENT !== 'production') : ?>
-            <?= nl2br(esc($message)) ?>
-        <?php else : ?>
-            <?= lang('Errors.sorryBadRequest') ?>
-        <?php endif; ?>
-    </p>
-</div>
+    <div class="error-card">
+        <div class="error-icon"><i class="bi bi-patch-question-fill"></i></div>
+        <div class="error-code">Error 400</div>
+        <h1 class="error-title">Bad Request</h1>
+        <p class="error-desc">
+            Your browser sent a request that this server could not understand. Please try again or head back to your gallery.
+        </p>
+        <a href="<?= base_url() ?>" class="btn-home">
+            <i class="bi bi-house-door-fill"></i> Back to Gallery
+        </a>
+    </div>
 </body>
 </html>

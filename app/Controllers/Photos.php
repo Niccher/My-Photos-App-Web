@@ -103,23 +103,38 @@ class Photos extends BaseController
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
             if (!in_array($ext, $allowedExtensions)) continue;
 
-            // Check if already in DB
-            if ($photoModel->where('filename', $file)->first()) continue;
-
             $fullPath = $uploadPath . $file;
-            $isVideo = in_array($ext, ['mp4', 'mov', 'webm']);
+            $fileHash = md5_file($fullPath);
+            $userId = auth()->id();
 
+            // 1. Check if already in DB by filename (backfill missing hashes)
+            $existingByFile = $photoModel->where('filename', $file)->where('user_id', $userId)->first();
+            if ($existingByFile) {
+                if (empty($existingByFile['file_hash'])) {
+                    $photoModel->update($existingByFile['id'], ['file_hash' => $fileHash]);
+                }
+                continue;
+            }
+
+            // 2. Check if already in DB by hash (prevent duplicates with different names)
+            if ($photoModel->where('file_hash', $fileHash)->where('user_id', $userId)->first()) continue;
+
+            $isVideo = in_array($ext, ['mp4', 'mov', 'webm']);
             $imageInfo = $isVideo ? false : @getimagesize($fullPath);
             $metadata = $isVideo ? null : $this->getMergedMetadata($fullPath);
 
+            // Determine mime type
+            $mime = $isVideo ? 'video/' . $ext : ($imageInfo['mime'] ?? 'image/' . $ext);
+
             $data = [
-                'user_id'        => auth()->id(),
+                'user_id'        => $userId,
                 'filename'       => $file,
                 'path'           => 'uploads/' . $file,
                 'mime_type'      => $mime,
                 'width'          => $imageInfo ? $imageInfo[0] : null,
                 'height'         => $imageInfo ? $imageInfo[1] : null,
                 'size'           => filesize($fullPath),
+                'file_hash'      => $fileHash,
                 'taken_at'       => $metadata['taken_at'] ?? date('Y-m-d H:i:s', filemtime($fullPath)),
                 'thumbnail_path' => 'thumbnails/' . $file,
                 'latitude'       => $metadata['lat'] ?? null,
@@ -128,22 +143,17 @@ class Photos extends BaseController
             ];
 
             // Generate thumbnail placeholder if generation fails, or if it's a video
-            if ($isVideo) {
-                // For videos, point the thumbnail path to a default video icon we can create later, or just use the same file path and the frontend can handle it
-                // We'll update the frontend to show a video icon if mime_type starts with video/
-            } else {
+            if (!$isVideo) {
                 try {
                     $this->generateThumbnail($fullPath, $thumbnailPath . $file);
-                } catch (\Exception $e) {
-                    // Log and continue, photo will use default or broken image token
-                }
+                } catch (\Exception $e) { }
             }
 
             $photoModel->insert($data);
             $count++;
         }
 
-        return $this->response->setJSON(['status' => 'success', 'message' => "Scanned and added $count new photos."]);
+        return $this->response->setJSON(['status' => 'success', 'message' => "Scanned. Updated/Added $count files."]);
     }
 
     public function upload()
@@ -159,11 +169,25 @@ class Photos extends BaseController
         // Get info BEFORE move, as move() deletes the temporary file
         $mimeType = $file->getMimeType();
         $size = $file->getSize();
-        $newName = $file->getRandomName();
-        
-        $file->move(FCPATH . 'uploads', $newName);
+        $tempPath = $file->getTempName();
+        $fileHash = md5_file($tempPath);
 
         $photoModel = new \App\Models\PhotoModel();
+        
+        // Check for duplicates
+        $existing = $photoModel->where('file_hash', $fileHash)->where('user_id', auth()->id())->first();
+        if ($existing) {
+            return $this->response->setJSON([
+                'status'  => 'success', 
+                'message' => 'File already exists.', 
+                'id'      => $existing['id'],
+                'is_duplicate' => true
+            ]);
+        }
+
+        $newName = $file->getRandomName();
+        $file->move(FCPATH . 'uploads', $newName);
+
         $fullPath = FCPATH . 'uploads/' . $newName;
         $thumbnailPath = FCPATH . 'thumbnails/' . $newName;
 
@@ -179,6 +203,7 @@ class Photos extends BaseController
             'width'          => $imageInfo ? $imageInfo[0] : null,
             'height'         => $imageInfo ? $imageInfo[1] : null,
             'size'           => $size,
+            'file_hash'      => $fileHash,
             'taken_at'       => $metadata['taken_at'] ?? date('Y-m-d H:i:s'),
             'thumbnail_path' => 'thumbnails/' . $newName,
             'latitude'       => $metadata['lat'] ?? null,

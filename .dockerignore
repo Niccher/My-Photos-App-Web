@@ -1,0 +1,16 @@
+.git
+.idea
+vendor/
+node_modules/
+writable/logs/*
+writable/cache/*
+.env
+tests/
+Dockerfile
+docker-compose.yml
+docker-entrypoint.sh
+phpunit.xml.dist
+README.md
+LICENSE
+!writable/logs/index.html
+!writable/cache/index.html

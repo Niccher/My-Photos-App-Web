@@ -10,8 +10,22 @@ use CodeIgniter\Router\RouteCollection;
 // API Auth
 // API Auth
 $routes->get('test-ping', 'TestAuth::ping', ['filter' => null]);
-$routes->get('api/test', function() { return 'API Test - No Filter'; }, ['filter' => null]);
-$routes->post('api/login', 'Api\Auth::login', ['filter' => null]);
+$routes->get('api/test', function() { return 'API is working'; });
+$routes->get('api/test2', 'Api\TestController::index');
+$routes->post('api/login', 'Api\Auth::login');
+
+// API Data Endpoints
+$routes->group('api', ['namespace' => 'App\Controllers\Api', 'filter' => 'tokens'], function ($routes) {
+    $routes->get('photos', 'ApiController::index');
+    $routes->get('albums', 'ApiController::albums');
+    $routes->get('albums/(:num)/photos', 'ApiController::albumPhotos/$1');
+    $routes->post('upload', '\App\Controllers\Photos::upload');
+    $routes->get('memories', 'ApiController::memories');
+    $routes->get('favorites', 'ApiController::favorites');
+    $routes->get('archive', 'ApiController::archive');
+    $routes->get('trash', 'ApiController::trash');
+    $routes->get('explore', 'ApiController::explore');
+});
 
 // All app routes require an authenticated session or token
 $routes->group('', ['filter' => 'chain'], function ($routes) {

@@ -35,8 +35,8 @@ class Auth extends BaseController
                 'password' => $this->request->getPost('password'),
             ];
 
-            // Authenticate
-            $authenticator = auth('tokens')->getAuthenticator();
+            // Authenticate (use session authenticator for email/password check)
+            $authenticator = auth('session')->getAuthenticator();
             $result = $authenticator->check($credentials);
 
             if (! $result->isOK()) {
@@ -53,9 +53,10 @@ class Auth extends BaseController
                 'status'       => 'success',
                 'access_token' => $token->raw_token,
                 'user'         => [
-                    'id'       => $user->id,
-                    'email'    => $user->email,
-                    'username' => $user->username,
+                    'id'         => $user->id,
+                    'email'      => $user->email,
+                    'username'   => $user->username,
+                    'created_at' => $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : null,
                 ],
             ]);
         } catch (\Throwable $e) {

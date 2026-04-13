@@ -1,0 +1,27 @@
+# CodeIgniter 4 standard ignores
+.env
+/vendor/
+/writable/cache/*
+/writable/debugbar/*
+/writable/logs/*
+/writable/session/*
+/writable/uploads/*
+!/writable/cache/.gitkeep
+!/writable/debugbar/.gitkeep
+!/writable/logs/.gitkeep
+!/writable/session/.gitkeep
+!/writable/uploads/.gitkeep
+
+# Public user-uploaded content (if applicable)
+/public/uploads/*
+/public/thumbnails/*
+!/public/uploads/.gitkeep
+!/public/thumbnails/.gitkeep
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.bak
+.DS_Store
+Thumbs.db
