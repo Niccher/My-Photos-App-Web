@@ -5,6 +5,7 @@ namespace App\Controllers\Api;
 use App\Controllers\BaseController;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Shield\Entities\User;
+use App\Models\PhotoModel;
 
 class Auth extends BaseController
 {
@@ -49,14 +50,20 @@ class Auth extends BaseController
             $user = $result->extraInfo();
             $token = $user->generateAccessToken($this->request->getPost('device_name'));
 
+            $photoModel = new PhotoModel();
+            $lastPhoto = $photoModel->where('user_id', $user->id)
+                                    ->orderBy('created_at', 'DESC')
+                                    ->first();
+
             return $this->response->setJSON([
                 'status'       => 'success',
                 'access_token' => $token->raw_token,
                 'user'         => [
-                    'id'         => $user->id,
-                    'email'      => $user->email,
-                    'username'   => $user->username,
-                    'created_at' => $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : null,
+                    'id'          => $user->id,
+                    'email'       => $user->email,
+                    'username'    => $user->username,
+                    'created_at'  => $user->created_at ? $user->created_at->format('Y-m-d H:i:s') : null,
+                    'last_upload' => $lastPhoto ? ($lastPhoto['created_at'] ?? null) : null,
                 ],
             ]);
         } catch (\Throwable $e) {
