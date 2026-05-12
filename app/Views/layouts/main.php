@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photos</title>
+    <base href="<?= base_url() ?>">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Fabric.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <!-- Dropzone CSS -->
@@ -110,14 +113,90 @@
         .lightbox-prev { left: 20px; }
         .lightbox-next { right: 20px; }
         
+        .sidebar {
+            width: 280px;
+            height: calc(100vh - 56px);
+            position: fixed;
+            left: 0;
+            top: 56px;
+            z-index: 1000;
+            background-color: #ffffff;
+            border-right: 1px solid #e0e0e0;
+            transition: all 0.3s;
+            overflow-y: auto;
+            padding: 1rem 0.5rem;
+        }
+
+        .sidebar .nav-link {
+            border-radius: 0 25px 25px 0;
+            margin-right: 0.5rem;
+            color: #3c4043;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar .nav-link:hover {
+            background-color: #f1f3f4;
+            color: #1a73e8;
+        }
+
+        .sidebar .nav-link.active {
+            background-color: #e8f0fe;
+            color: #1967d2;
+        }
+
+        .sidebar .nav-link i {
+            margin-right: 1rem;
+            font-size: 1.25rem;
+            opacity: 0.7;
+        }
+
+        .sidebar .nav-link.active i {
+            opacity: 1;
+        }
+
+        .sidebar-section-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #5f6368;
+            padding: 1.5rem 1.5rem 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .storage-indicator {
+            padding: 1.5rem;
+            margin-top: auto;
+            border-top: 1px solid #f1f3f4;
+        }
+
+        .storage-indicator .progress {
+            height: 4px;
+            background-color: #e8eaed;
+            margin-bottom: 0.5rem;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+            transition: all 0.3s;
+            min-height: calc(100vh - 56px);
+            background-color: #ffffff;
+        }
+
         @media (max-width: 991.98px) {
             .sidebar {
                 margin-left: -280px;
-            }
-            .main-content {
-                margin-left: 0;
+                top: 0;
+                height: 100vh;
+                box-shadow: 0 0 15px rgba(0,0,0,0.1);
             }
             .sidebar.active {
+                margin-left: 0;
+            }
+            .main-content {
                 margin-left: 0;
             }
         }
@@ -184,72 +263,100 @@
 
 <div class="container-fluid">
     <nav id="sidebarMenu" class="sidebar">
-            <div class="position-sticky d-flex flex-column h-100">
-                <ul class="nav flex-column mb-auto">
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('/')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url() ?>">
-                            <span><i class="bi bi-image"></i> Photos</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['photos'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('explore')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('explore') ?>">
-                            <span><i class="bi bi-search"></i> Explore</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['explore'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('memories')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('memories') ?>">
-                            <span><i class="bi bi-calendar-event"></i> Memories</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('favorites')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('favorites') ?>">
-                            <span><i class="bi bi-heart"></i> Favorites</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['favorites'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('albums')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('albums') ?>">
-                            <span><i class="bi bi-folder2-open"></i> Albums</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['albums'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('analytics')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('analytics') ?>">
-                            <span><i class="bi bi-graph-up-arrow"></i> Analytics</span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('archive')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('archive') ?>">
-                            <span><i class="bi bi-archive"></i> Archive</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['archive'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link <?= (url_is('trash')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('trash') ?>">
-                            <span><i class="bi bi-trash"></i> Trash</span>
-                            <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['trash'] ?? 0 ?></span>
-                        </a>
-                    </li>
-                </ul>
-                
-                <div class="storage-indicator">
-                    <div class="d-flex align-items-center mb-2">
-                        <i class="bi bi-cloud-check me-2 text-muted"></i>
-                        <span class="small text-muted">Storage</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-primary" role="progressbar" style="width: <?= $storagePercent ?? 0 ?>%" aria-valuenow="<?= $storagePercent ?? 0 ?>" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                    <p class="small text-muted mb-0"><?= $storageUsed ?? '0 B' ?> of 1 GB used</p>
+        <div class="d-flex flex-column h-100">
+            <ul class="nav flex-column mb-auto">
+                <!-- LIBRARY SECTION -->
+                <li class="sidebar-section-title">Library</li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('/')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url() ?>">
+                        <span><i class="bi bi-image"></i> Photos</span>
+                        <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['photos'] ?? 0 ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('explore')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('explore') ?>">
+                        <span><i class="bi bi-compass"></i> Explore</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('favorites')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('favorites') ?>">
+                        <span><i class="bi bi-heart"></i> Favorites</span>
+                        <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['favorites'] ?? 0 ?></span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('memories')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('memories') ?>">
+                        <span><i class="bi bi-clock-history"></i> Memories</span>
+                    </a>
+                </li>
+
+                <!-- ALBUMS SECTION -->
+                <li class="sidebar-section-title">Albums</li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('albums')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('albums') ?>">
+                        <span><i class="bi bi-journal-album"></i> All Albums</span>
+                        <span class="badge rounded-pill bg-light text-dark opacity-75 small fw-normal"><?= $counts['albums'] ?? 0 ?></span>
+                    </a>
+                </li>
+                <?php if (!empty($counts['recent_albums'])): ?>
+                    <?php foreach ($counts['recent_albums'] as $album): ?>
+                        <li class="nav-item">
+                            <a class="nav-link py-2 ps-5 album-dropzone" href="<?= base_url('albums/'.$album['id']) ?>" data-album-id="<?= $album['id'] ?>">
+                                <i class="bi bi-folder me-2" style="font-size: 1rem; opacity: 0.6;"></i> <?= esc($album['name']) ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+
+                <!-- TOOLS SECTION -->
+                <li class="sidebar-section-title">Tools</li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('sharing')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('sharing') ?>">
+                        <span><i class="bi bi-share"></i> Sharing</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('analytics')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('analytics') ?>">
+                        <span><i class="bi bi-bar-chart-line"></i> Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('archive')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('archive') ?>">
+                        <span><i class="bi bi-archive"></i> Archive</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (url_is('trash')) ? 'active' : '' ?> d-flex justify-content-between align-items-center" href="<?= base_url('trash') ?>">
+                        <span><i class="bi bi-trash"></i> Trash</span>
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="storage-indicator">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="small text-muted fw-bold">Storage</span>
+                    <span class="small text-muted"><?= round($storagePercent ?? 0) ?>%</span>
                 </div>
+                <div class="progress">
+                    <div class="progress-bar <?= ($storagePercent ?? 0) > 90 ? 'bg-danger' : 'bg-primary' ?>" role="progressbar" style="width: <?= $storagePercent ?? 0 ?>%" aria-valuenow="<?= $storagePercent ?? 0 ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <p class="small text-muted mb-0" style="font-size: 0.7rem;"><?= $storageUsed ?? '0 B' ?> of 1 GB used</p>
             </div>
-        </nav>
+        </div>
+    </nav>
 
         <main class="main-content">
             <?= $this->renderSection('content') ?>
         </main>
+        
+        <!-- Interactive Timeline Scrubbar -->
+        <div id="timelineScrubbar" class="timeline-scrubbar d-none d-xl-flex">
+            <div class="timeline-line"></div>
+            <div id="timelineMarkers"></div>
+            <div id="timelineTooltip" class="timeline-tooltip d-none">
+                <span id="timelineTooltipText"></span>
+            </div>
+        </div>
 </div>
 
 <!-- Bulk Actions Toolbar (Floating) -->
@@ -294,6 +401,9 @@
                     <button type="button" class="btn btn-link text-white p-2" id="btnAddToAlbum" title="Add to Album">
                         <i class="bi bi-plus-circle fs-5"></i>
                     </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnEditPhoto" title="Edit Photo">
+                        <i class="bi bi-pencil-square fs-5"></i>
+                    </button>
                     <button type="button" class="btn btn-link text-white p-2" id="btnRestore" style="display: none;" title="Restore">
                         <i class="bi bi-clock-history fs-5"></i>
                     </button>
@@ -303,10 +413,18 @@
                     <button type="button" class="btn btn-link text-white p-2" id="btnDelete" title="Delete">
                         <i class="bi bi-trash fs-5"></i>
                     </button>
+                    <button type="button" class="btn btn-link text-white p-2" id="btnSlideshow" title="Start Slideshow">
+                        <i class="bi bi-play-fill fs-5"></i>
+                    </button>
                     <button type="button" class="btn btn-link text-white p-2 ms-2 border-start border-secondary" id="btnInfo" title="Info">
                         <i class="bi bi-info-circle fs-5"></i>
                     </button>
                 </div>
+            </div>
+            
+            <!-- Slideshow Progress Bar -->
+            <div id="slideshowProgress" class="position-absolute bottom-0 start-0 w-100 d-none" style="height: 4px; background: rgba(255,255,255,0.1); z-index: 1060;">
+                <div class="progress-bar bg-primary h-100" style="width: 0%; transition: width 0.1s linear;"></div>
             </div>
             
             <!-- Link Copy Tooltip (Pseudo) -->
@@ -401,6 +519,78 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="location.reload()">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+    <div id="liveToast" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-info-circle me-2" id="toastIcon"></i>
+                <span id="toastMessage"></span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<!-- Photo Editor Modal -->
+<div class="modal fade" id="editorModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark border-0">
+            <div class="modal-header border-0 bg-black p-2 d-flex justify-content-between align-items-center" style="z-index: 10;">
+                <div class="d-flex align-items-center gap-3 ms-2">
+                    <h6 class="text-white mb-0 fw-bold"><i class="bi bi-pencil-square me-2"></i>Photo Editor</h6>
+                </div>
+                <div class="d-flex gap-2 me-2">
+                    <button type="button" class="btn btn-outline-light btn-sm px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm px-4" id="btnSaveEdit">Save Changes</button>
+                </div>
+            </div>
+            <div class="modal-body p-0 d-flex flex-column flex-md-row overflow-hidden bg-black">
+                <!-- Toolbar -->
+                <div class="editor-toolbar bg-dark border-end border-secondary p-3 d-flex flex-md-column gap-3 overflow-auto" style="min-width: 80px; z-index: 5;">
+                    <button class="btn btn-link text-white p-2 editor-tool" id="toolRotateLeft" title="Rotate Left">
+                        <i class="bi bi-arrow-counterclockwise fs-4"></i>
+                    </button>
+                    <button class="btn btn-link text-white p-2 editor-tool" id="toolRotateRight" title="Rotate Right">
+                        <i class="bi bi-arrow-clockwise fs-4"></i>
+                    </button>
+                    <div class="vr d-md-none mx-2"></div>
+                    <hr class="d-none d-md-block my-2 border-secondary">
+                    <button class="btn btn-link text-white p-2 editor-tool" id="toolCrop" title="Crop">
+                        <i class="bi bi-crop fs-4"></i>
+                    </button>
+                    <div class="vr d-md-none mx-2"></div>
+                    <hr class="d-none d-md-block my-2 border-secondary">
+                    <button class="btn btn-link text-white p-2 editor-tool" data-filter="grayscale" title="Grayscale">
+                        <i class="bi bi-circle-half fs-4"></i>
+                    </button>
+                    <button class="btn btn-link text-white p-2 editor-tool" data-filter="sepia" title="Sepia">
+                        <i class="bi bi-palette fs-4"></i>
+                    </button>
+                    <button class="btn btn-link text-white p-2 editor-tool" data-filter="brightness" title="Auto-Enhance">
+                        <i class="bi bi-sun fs-4"></i>
+                    </button>
+                    <hr class="d-none d-md-block my-2 border-secondary">
+                    <button class="btn btn-link text-white p-2 editor-tool text-danger" id="toolReset" title="Reset All">
+                        <i class="bi bi-arrow-repeat fs-4"></i>
+                    </button>
+                </div>
+                <!-- Canvas Area -->
+                <div class="flex-grow-1 d-flex align-items-center justify-content-center p-4 position-relative" id="editorCanvasContainer">
+                    <canvas id="editorCanvas"></canvas>
+                    <div id="cropOverlay" class="d-none position-absolute border border-primary" style="box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); cursor: move;">
+                        <div class="crop-handle nw"></div>
+                        <div class="crop-handle ne"></div>
+                        <div class="crop-handle sw"></div>
+                        <div class="crop-handle se"></div>
+                        <button class="btn btn-primary btn-sm position-absolute bottom-0 start-50 translate-middle-x mb-n5" id="btnConfirmCrop">Apply Crop</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

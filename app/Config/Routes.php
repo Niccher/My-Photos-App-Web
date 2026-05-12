@@ -42,6 +42,7 @@ $routes->group('', ['filter' => 'chain'], function ($routes) {
     $routes->post('photos/archive/(:num)', 'Photos::archivePhoto/$1');
     $routes->post('photos/delete/(:num)',  'Photos::deletePhoto/$1');
     $routes->post('photos/restore/(:num)', 'Photos::restorePhoto/$1');
+    $routes->post('photos/save-edit/(:num)', 'Photos::saveEdit/$1');
 
     // Sharing API
     $routes->post('photos/share/(:num)',   'Photos::sharePhoto/$1');

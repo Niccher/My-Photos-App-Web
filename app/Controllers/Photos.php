@@ -31,12 +31,20 @@ class Photos extends BaseController
         }
 
         $data = [
-            'photos'         => $query->findAll(),
+            'photos'         => $query->paginate(100),
+            'pager'          => $query->pager,
             'storageUsed'    => $this->formatBytes($totalBytes),
             'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
             'counts'         => $counts,
             'searchQuery'    => $q
         ];
+        
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'photos' => $data['photos'],
+                'hasMore' => $query->pager->hasMore()
+            ]);
+        }
         
         return view('photos/index', $data);
     }
@@ -563,10 +571,16 @@ class Photos extends BaseController
 
     private function getSidebarCounts()
     {
+        $userId = auth()->id();
+        $cacheKey = "sidebar_counts_{$userId}";
+        
+        if ($counts = cache($cacheKey)) {
+            return $counts;
+        }
+
         $photoModel = new \App\Models\PhotoModel();
         $linkModel = new \App\Models\SharedLinkModel();
         $shareModel = new \App\Models\PhotoShareModel();
-        $userId = auth()->id();
 
         $photosCount = $photoModel->where('user_id', $userId)->where('is_archived', false)->countAllResults();
         $exploreCount = $photoModel->where('user_id', $userId)->where('is_archived', false)
@@ -604,8 +618,12 @@ class Photos extends BaseController
             'albums'    => $albumsCount,
             'memories'  => $memoriesCount,
             'archive'   => $archiveCount,
-            'trash'     => $trashCount
+            'trash'     => $trashCount,
+            'recent_albums' => $albumModel->where('user_id', $userId)->orderBy('id', 'DESC')->limit(5)->findAll()
         ];
+
+        cache()->save($cacheKey, $counts, 300); // 5 minutes
+        return $counts;
     }
 
     public function archivePhoto($id)
@@ -774,27 +792,52 @@ class Photos extends BaseController
 
     private function generateThumbnail($source, $target)
     {
-        if (file_exists($target)) return;
+        if (file_exists($target)) @unlink($target);
 
         try {
-            // Using CodeIgniter's Image Library if available
-            $config = [
-                'image_library'  => 'gd2',
-                'source_image'   => $source,
-                'new_image'      => $target,
-                'maintain_ratio' => true,
-                'width'          => 400,
-                'height'         => 400,
-            ];
-
             $image = \Config\Services::image()
                 ->withFile($source)
                 ->resize(400, 400, true, 'height')
                 ->save($target);
         } catch (\Exception $e) {
-            // If the image type is unsupported by the GD2 library (like some PNGs/WEBPs without proper extensions),
-            // just copy the original file as the thumbnail or leave it empty so the frontend uses the generic icon.
             @copy($source, $target); 
         }
+    }
+
+    public function saveEdit($id)
+    {
+        $photoModel = new \App\Models\PhotoModel();
+        $photo = $photoModel->where('user_id', auth()->id())->find($id);
+        
+        if (!$photo) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Photo not found']);
+        }
+
+        $file = $this->request->getFile('image');
+        if (!$file || !$file->isValid()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Invalid image data']);
+        }
+
+        $fullPath = FCPATH . $photo['path'];
+        $thumbnailPath = FCPATH . $photo['thumbnail_path'];
+
+        // Overwrite original
+        if (file_exists($fullPath)) @unlink($fullPath);
+        $file->move(dirname($fullPath), basename($fullPath));
+
+        // Regenerate thumbnail
+        $this->generateThumbnail($fullPath, $thumbnailPath);
+
+        // Update DB
+        $imageInfo = @getimagesize($fullPath);
+        $photoModel->update($id, [
+            'width'     => $imageInfo[0] ?? $photo['width'],
+            'height'    => $imageInfo[1] ?? $photo['height'],
+            'size'      => filesize($fullPath),
+            'file_hash' => md5_file($fullPath),
+            'updated_at'=> date('Y-m-d H:i:s')
+        ]);
+
+        return $this->response->setJSON(['status' => 'success', 'message' => 'Changes saved successfully']);
     }
 }

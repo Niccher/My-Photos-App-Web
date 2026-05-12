@@ -1,5 +1,22 @@
 $(document).ready(function () {
     const $loading = $('#loadingOverlay');
+    const toastBootstrap = bootstrap.Toast.getOrCreateInstance(document.getElementById('liveToast'));
+
+    function showToast(message, type = 'dark') {
+        const $toast = $('#liveToast');
+        $toast.removeClass('bg-dark bg-success bg-danger bg-warning').addClass('bg-' + type);
+        $('#toastMessage').text(message);
+        
+        const icons = {
+            'dark': 'bi-info-circle',
+            'success': 'bi-check-circle',
+            'danger': 'bi-exclamation-circle',
+            'warning': 'bi-exclamation-triangle'
+        };
+        $('#toastIcon').attr('class', 'bi ' + (icons[type] || icons['dark']) + ' me-2');
+        
+        toastBootstrap.show();
+    }
 
     // Sidebar Toggle
     $('#sidebarToggle').on('click', function () {
@@ -12,6 +29,98 @@ $(document).ready(function () {
     let currentPhotoId = null;
     let isSelectMode = false;
     let selectedIds = new Set();
+    let currentPage = 1;
+    let isFetching = false;
+    let hasMore = true;
+    let lastDateGroup = $('.photo-grid').last().prev().find('h5').text().trim() || '';
+
+    // Initialize Intersection Observer for Infinite Scroll
+    const sentinel = document.getElementById('infiniteScrollSentinel');
+    if (sentinel) {
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting && !isFetching && hasMore) {
+                loadMorePhotos();
+            }
+        }, { threshold: 0.1 });
+        observer.observe(sentinel);
+    }
+
+    function loadMorePhotos() {
+        isFetching = true;
+        currentPage++;
+        $('#infiniteScrollSentinel .spinner-border').removeClass('d-none');
+
+        const q = $('#searchInput').val();
+        $.ajax({
+            url: window.location.pathname + '?page=' + currentPage + (q ? '&q=' + q : ''),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            success: function (res) {
+                if (res.photos && res.photos.length > 0) {
+                    appendPhotos(res.photos);
+                    hasMore = res.hasMore;
+                } else {
+                    hasMore = false;
+                }
+            },
+            complete: function () {
+                isFetching = false;
+                $('#infiniteScrollSentinel .spinner-border').addClass('d-none');
+                if (!hasMore) {
+                    $('#infiniteScrollSentinel').html('<p class="text-muted small mt-4">You have reached the end of your collection.</p>');
+                }
+                // Refresh $allPhotos for lightbox
+                $allPhotos = $('.photo-item');
+                initTimelineScrubbar(); // Refresh scrubbar markers
+            }
+        });
+    }
+
+    function appendPhotos(photos) {
+        const $mainContent = $('main.main-content');
+        const baseUrl = $('base').attr('href') || window.location.origin + '/';
+        
+        photos.forEach(photo => {
+            const date = new Date(photo.taken_at);
+            const monthYear = date.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+            
+            if (monthYear !== lastDateGroup) {
+                lastDateGroup = monthYear;
+                const headerHtml = `
+                    <div class="d-flex align-items-center gap-3 mb-3 mt-5 px-2">
+                        <h5 class="mb-0 fw-bold text-white opacity-75 timeline-header">${monthYear}</h5>
+                        <div class="flex-grow-1 border-bottom border-secondary opacity-25"></div>
+                    </div>
+                    <div class="photo-grid"></div>`;
+                $('#infiniteScrollSentinel').before(headerHtml);
+            }
+            
+            const $targetGrid = $('.photo-grid').last();
+            const photoHtml = `
+                <div class="photo-item" 
+                     draggable="true"
+                     data-id="${photo.id}" 
+                     data-full="${baseUrl + photo.path}"
+                     data-filename="${photo.filename}"
+                     data-size="${(photo.size / 1024 / 1024).toFixed(2)} MB"
+                     data-dimensions="${photo.width ? photo.width + ' x ' + photo.height : 'Video'}"
+                     data-date="${date.toLocaleString('en-US', { month: 'short', day: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}"
+                     data-favorite="${photo.is_favorite ? '1' : '0'}"
+                     data-type="${photo.mime_type.startsWith('video/') ? 'video' : 'image'}">
+                    <div class="selection-overlay d-none position-absolute top-0 start-0 w-100 h-100 flex-row align-items-start justify-content-end p-2" style="z-index: 10; background: rgba(0,0,0,0.1);">
+                        <div class="selection-check d-flex align-items-center justify-content-center bg-white rounded-circle shadow-sm" style="width: 24px; height: 24px; cursor: pointer; border: 2px solid #1a73e8; color: #1a73e8;">
+                            <i class="bi bi-check-lg d-none"></i>
+                        </div>
+                    </div>
+                    ${photo.is_favorite ? '<div class="position-absolute top-0 start-0 p-2" style="z-index: 5;"><i class="bi bi-heart-fill text-danger shadow-sm"></i></div>' : ''}
+                    ${photo.mime_type.startsWith('video/') 
+                        ? `<video src="${baseUrl + photo.path}" class="w-100 h-100 object-fit-cover" muted loop preload="metadata" onmouseover="this.play()" onmouseout="this.pause()"></video>
+                           <div class="position-absolute bottom-0 end-0 p-1 m-1 bg-dark bg-opacity-75 text-white rounded small" style="pointer-events: none;"><i class="bi bi-play-btn me-1"></i>Video</div>`
+                        : `<img src="${baseUrl + photo.thumbnail_path}" alt="${photo.filename}" loading="lazy">`
+                    }
+                </div>`;
+            $targetGrid.append(photoHtml);
+        });
+    }
 
     // Corrected $loading variable initialization
     // const $loading = $('.loading-overlay'); // This line was moved from the top, but the original $loading was for #loadingOverlay. Reverting to original.
@@ -124,8 +233,63 @@ $(document).ready(function () {
         }
     });
 
-    // Pause video when lightbox closes
+    // --- Slideshow Logic ---
+    let slideshowInterval = null;
+    let slideshowSpeed = 5000; // 5 seconds
+    let slideshowProgress = 0;
+
+    function startSlideshow() {
+        if (slideshowInterval) return;
+        
+        $('#btnSlideshow i').attr('class', 'bi bi-pause-fill fs-5 text-primary');
+        $('#slideshowProgress').removeClass('d-none');
+        resetSlideshowProgress();
+
+        slideshowInterval = setInterval(() => {
+            if (currentIndex < $allPhotos.length - 1) {
+                openPhoto(currentIndex + 1);
+                resetSlideshowProgress();
+            } else {
+                stopSlideshow();
+                showToast('Slideshow finished', 'dark');
+            }
+        }, slideshowSpeed);
+    }
+
+    function stopSlideshow() {
+        clearInterval(slideshowInterval);
+        slideshowInterval = null;
+        $('#btnSlideshow i').attr('class', 'bi bi-play-fill fs-5');
+        $('#slideshowProgress').addClass('d-none');
+        clearInterval(progressTimer);
+    }
+
+    let progressTimer = null;
+    function resetSlideshowProgress() {
+        slideshowProgress = 0;
+        clearInterval(progressTimer);
+        $('#slideshowProgress .progress-bar').css('width', '0%');
+        
+        const step = 100 / (slideshowSpeed / 100);
+        progressTimer = setInterval(() => {
+            slideshowProgress += step;
+            $('#slideshowProgress .progress-bar').css('width', slideshowProgress + '%');
+            if (slideshowProgress >= 100) clearInterval(progressTimer);
+        }, 100);
+    }
+
+    $('#btnSlideshow').on('click', function () {
+        if (slideshowInterval) stopSlideshow();
+        else startSlideshow();
+    });
+
+    // Stop slideshow on manual navigation or modal close
+    $('#btnPrevPhoto, #btnNextPhoto').on('click', function () {
+        if (slideshowInterval) stopSlideshow();
+    });
+
     document.getElementById('lightboxModal').addEventListener('hidden.bs.modal', event => {
+        stopSlideshow();
         $lightboxImageContainer.find('video').each(function () {
             this.pause();
         });
@@ -263,9 +427,9 @@ $(document).ready(function () {
         $.post(BASE_URL + 'albums/add-photo', { album_id: albumId, photo_id: currentPhotoId }, function (res) {
             if (res.status === 'success') {
                 $addToAlbumModal.hide();
-                alert('Added to album!');
+                showToast('Added to album!', 'success');
             } else {
-                alert(res.message);
+                showToast(res.message, 'danger');
             }
         });
     });
@@ -276,9 +440,251 @@ $(document).ready(function () {
             if (res.status === 'success') {
                 location.reload();
             } else {
-                alert(res.message);
+                showToast(res.message, 'danger');
             }
         });
+    });
+
+    // --- Photo Editor Logic ---
+    let editorCanvas = null;
+    let originalImage = null;
+    const $editorModal = new bootstrap.Modal('#editorModal');
+
+    $('#btnEditPhoto').on('click', function () {
+        if (!currentPhotoId) return;
+        const $item = $(`[data-id="${currentPhotoId}"]`);
+        const fullUrl = $item.data('full');
+        
+        $lightboxModal.hide();
+        $editorModal.show();
+        
+        initEditor(fullUrl);
+    });
+
+    function initEditor(url) {
+        if (editorCanvas) {
+            editorCanvas.dispose();
+        }
+        
+        editorCanvas = new fabric.Canvas('editorCanvas', {
+            backgroundColor: '#000',
+            selection: false
+        });
+
+        fabric.Image.fromURL(url, function (img) {
+            originalImage = img;
+            
+            // Scale image to fit canvas
+            const containerWidth = $('#editorCanvasContainer').width() - 80;
+            const containerHeight = $('#editorCanvasContainer').height() - 80;
+            
+            const scale = Math.min(containerWidth / img.width, containerHeight / img.height);
+            
+            img.set({
+                scaleX: scale,
+                scaleY: scale,
+                originX: 'center',
+                originY: 'center',
+                left: editorCanvas.width / 2,
+                top: editorCanvas.height / 2,
+                selectable: false
+            });
+
+            editorCanvas.setWidth($('#editorCanvasContainer').width());
+            editorCanvas.setHeight($('#editorCanvasContainer').height());
+            
+            // Update image center after canvas resize
+            img.set({
+                left: editorCanvas.width / 2,
+                top: editorCanvas.height / 2
+            });
+
+            editorCanvas.add(img);
+            editorCanvas.renderAll();
+        }, { crossOrigin: 'anonymous' });
+    }
+
+    // Rotation
+    $('#toolRotateLeft').on('click', () => rotateImage(-90));
+    $('#toolRotateRight').on('click', () => rotateImage(90));
+
+    function rotateImage(angle) {
+        if (!originalImage) return;
+        const currentAngle = originalImage.angle || 0;
+        originalImage.rotate(currentAngle + angle);
+        editorCanvas.renderAll();
+    }
+
+    // Filters
+    $('.editor-tool[data-filter]').on('click', function () {
+        const filter = $(this).data('filter');
+        applyFilter(filter);
+    });
+
+    function applyFilter(type) {
+        if (!originalImage) return;
+        
+        const filterTypes = {
+            'grayscale': [new fabric.Image.filters.Grayscale()],
+            'sepia': [new fabric.Image.filters.Sepia()],
+            'brightness': [
+                new fabric.Image.filters.Brightness({ brightness: 0.05 }),
+                new fabric.Image.filters.Contrast({ contrast: 0.1 })
+            ]
+        };
+
+        const targetFilters = filterTypes[type];
+        if (!targetFilters) return;
+
+        let isActive = false;
+        targetFilters.forEach(tf => {
+            const index = originalImage.filters.findIndex(f => f.type === tf.type);
+            if (index > -1) {
+                originalImage.filters.splice(index, 1);
+                isActive = false;
+            } else {
+                originalImage.filters.push(tf);
+                isActive = true;
+            }
+        });
+
+        originalImage.applyFilters();
+        editorCanvas.renderAll();
+        
+        $(`.editor-tool[data-filter="${type}"]`).toggleClass('active', isActive);
+    }
+
+    // Reset
+    $('#toolReset').on('click', function () {
+        if (!originalImage) return;
+        originalImage.filters = [];
+        originalImage.angle = 0;
+        originalImage.applyFilters();
+        editorCanvas.renderAll();
+        $('.editor-tool').removeClass('active');
+    });
+
+    // Save
+    $('#btnSaveEdit').on('click', function () {
+        if (!editorCanvas || !currentPhotoId) return;
+        
+        $loading.css('display', 'flex');
+        
+        // Export at original resolution (roughly)
+        // Note: Real implementation would handle this better, but for demo we export canvas
+        const dataURL = editorCanvas.toDataURL({
+            format: 'jpeg',
+            quality: 0.9
+        });
+
+        // Convert DataURL to Blob
+        fetch(dataURL)
+            .then(res => res.blob())
+            .then(blob => {
+                const formData = new FormData();
+                formData.append('image', blob, 'edit.jpg');
+
+                $.ajax({
+                    url: BASE_URL + 'photos/save-edit/' + currentPhotoId,
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (res) {
+                        if (res.status === 'success') {
+                            showToast('Photo updated successfully!', 'success');
+                            $editorModal.hide();
+                            setTimeout(() => location.reload(), 1000);
+                        } else {
+                            showToast(res.message, 'danger');
+                        }
+                    },
+                    error: () => showToast('Failed to save edit', 'danger'),
+                    complete: () => $loading.hide()
+                });
+            });
+    });
+
+    // --- Crop Tool Logic ---
+    let isCropMode = false;
+    const $cropOverlay = $('#cropOverlay');
+    
+    $('#toolCrop').on('click', function () {
+        isCropMode = !isCropMode;
+        $(this).toggleClass('active', isCropMode);
+        
+        if (isCropMode) {
+            $cropOverlay.removeClass('d-none');
+            // Center the crop overlay on the canvas
+            const canvasRect = editorCanvas.getElement().getBoundingClientRect();
+            $cropOverlay.css({
+                width: originalImage.getScaledWidth() / 2,
+                height: originalImage.getScaledHeight() / 2,
+                left: (canvasRect.width - (originalImage.getScaledWidth() / 2)) / 2,
+                top: (canvasRect.height - (originalImage.getScaledHeight() / 2)) / 2
+            });
+        } else {
+            $cropOverlay.addClass('d-none');
+        }
+    });
+
+    // Make crop overlay draggable
+    let isDraggingCrop = false;
+    let dragStartX, dragStartY, initialLeft, initialTop;
+
+    $cropOverlay.on('mousedown', function (e) {
+        if (e.target !== this) return; // Only drag if clicking the overlay itself, not handles
+        isDraggingCrop = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        initialLeft = parseFloat($(this).css('left'));
+        initialTop = parseFloat($(this).css('top'));
+        e.preventDefault();
+    });
+
+    $(document).on('mousemove', function (e) {
+        if (!isDraggingCrop) return;
+        const dx = e.clientX - dragStartX;
+        const dy = e.clientY - dragStartY;
+        $cropOverlay.css({
+            left: initialLeft + dx,
+            top: initialTop + dy
+        });
+    });
+
+    $(document).on('mouseup', function () {
+        isDraggingCrop = false;
+    });
+
+    $('#btnConfirmCrop').on('click', function () {
+        if (!originalImage || !isCropMode) return;
+
+        // Calculate crop relative to original image resolution
+        const canvasRect = editorCanvas.getElement().getBoundingClientRect();
+        const overlayRect = $cropOverlay[0].getBoundingClientRect();
+        
+        const scaleX = originalImage.scaleX;
+        const scaleY = originalImage.scaleY;
+
+        // Calculate coordinates relative to the image object center
+        const relativeX = (overlayRect.left - canvasRect.left - originalImage.left) / scaleX;
+        const relativeY = (overlayRect.top - canvasRect.top - originalImage.top) / scaleY;
+        
+        // Fabric images use cropX/cropY relative to original size
+        originalImage.set({
+            cropX: (originalImage.width / 2) + relativeX,
+            cropY: (originalImage.height / 2) + relativeY,
+            width: overlayRect.width / scaleX,
+            height: overlayRect.height / scaleY
+        });
+
+        editorCanvas.renderAll();
+        
+        // Exit crop mode
+        isCropMode = false;
+        $('#toolCrop').removeClass('active');
+        $cropOverlay.addClass('d-none');
+        showToast('Crop applied!', 'dark');
     });
 
     // --- Search Logic ---
@@ -399,17 +805,115 @@ $(document).ready(function () {
             url: 'scan',
             method: 'GET',
             success: function (response) {
-                alert(response.message);
-                location.reload();
+                showToast(response.message, 'success');
+                setTimeout(() => location.reload(), 1500);
             },
             error: function () {
-                alert('Scan failed.');
+                showToast('Scan failed.', 'danger');
             },
             complete: function () {
                 $loading.hide();
             }
         });
     });
+
+    // --- Drag and Drop Logic ---
+    $(document).on('dragstart', '.photo-item', function (e) {
+        if (isSelectMode) return;
+        const id = $(this).data('id');
+        e.originalEvent.dataTransfer.setData('text/plain', id);
+        $(this).addClass('dragging');
+    });
+
+    $(document).on('dragend', '.photo-item', function () {
+        $(this).removeClass('dragging');
+    });
+
+    $('.album-dropzone').on('dragover', function (e) {
+        e.preventDefault();
+        $(this).addClass('bg-primary text-white rounded');
+    });
+
+    $('.album-dropzone').on('dragleave', function () {
+        $(this).removeClass('bg-primary text-white rounded');
+    });
+
+    $('.album-dropzone').on('drop', function (e) {
+        e.preventDefault();
+        const $this = $(this);
+        $this.removeClass('bg-primary text-white rounded');
+        
+        const photoId = e.originalEvent.dataTransfer.getData('text/plain');
+        const albumId = $this.data('album-id');
+
+        if (photoId && albumId) {
+            $.post(BASE_URL + 'albums/add-photo', { album_id: albumId, photo_id: photoId }, function (res) {
+                if (res.status === 'success') {
+                    showToast('Added to album!', 'success');
+                } else {
+                    showToast(res.message, 'warning');
+                }
+            });
+        }
+    });
+
+    // --- Timeline Scrubbar Logic ---
+    function initTimelineScrubbar() {
+        const $scrubbar = $('#timelineScrubbar');
+        const $markersContainer = $('#timelineMarkers');
+        const $tooltip = $('#timelineTooltip');
+        const $tooltipText = $('#timelineTooltipText');
+        const $headers = $('.timeline-header');
+
+        if ($headers.length < 2) {
+            $scrubbar.addClass('d-none');
+            return;
+        }
+
+        $scrubbar.removeClass('d-none');
+        $markersContainer.empty();
+
+        $headers.each(function (index) {
+            const $header = $(this);
+            const dateText = $header.text().trim();
+            const $marker = $('<div class="timeline-marker"></div>');
+            
+            $marker.on('mouseenter', function () {
+                const pos = $(this).position().top;
+                $tooltipText.text(dateText);
+                $tooltip.css('top', pos + 'px').removeClass('d-none');
+            });
+
+            $marker.on('mouseleave', function () {
+                $tooltip.addClass('d-none');
+            });
+
+            $marker.on('click', function () {
+                $('html, body').animate({
+                    scrollTop: $header.offset().top - 80
+                }, 500);
+            });
+
+            $markersContainer.append($marker);
+        });
+
+        // Update active marker on scroll
+        $(window).on('scroll', function () {
+            const scrollPos = $(window).scrollTop() + 100;
+            let activeIndex = 0;
+
+            $headers.each(function (index) {
+                if ($(this).offset().top <= scrollPos) {
+                    activeIndex = index;
+                }
+            });
+
+            $('.timeline-marker').removeClass('active').eq(activeIndex).addClass('active');
+        });
+    }
+
+    // Call init after content is potentially loaded
+    initTimelineScrubbar();
 
     // Dropzone Initialization
     if ($('#photoDropzone').length) {

@@ -33,11 +33,15 @@
             if ($currentDate !== '') echo '</div>'; // Close previous grid
             $currentDate = $photoDate;
     ?>
-        <h5 class="mb-3 mt-4 text-muted px-2"><?= $currentDate ?></h5>
+        <div class="d-flex align-items-center gap-3 mb-3 mt-5 px-2">
+            <h5 class="mb-0 fw-bold text-white opacity-75 timeline-header"><?= $currentDate ?></h5>
+            <div class="flex-grow-1 border-bottom border-secondary opacity-25"></div>
+        </div>
         <div class="photo-grid">
-    <?php endif; ?>
+<?php endif; ?>
         
         <div class="photo-item" 
+             draggable="true"
              data-id="<?= $photo['id'] ?>" 
              data-full="<?= base_url($photo['path']) ?>"
              data-filename="<?= $photo['filename'] ?>"
@@ -68,6 +72,18 @@
         
     <?php endforeach; ?>
     </div> <!-- Close last grid -->
+
+    <!-- Infinite Scroll Sentinel -->
+    <div id="infiniteScrollSentinel" class="text-center py-4" style="min-height: 100px;">
+        <div class="spinner-border text-primary d-none" role="status">
+            <span class="visually-hidden">Loading more...</span>
+        </div>
+    </div>
+    
+    <!-- Hidden Pagination for SEO/Fallback -->
+    <div class="d-none">
+        <?= $pager->links() ?>
+    </div>
 <?php endif; ?>
 
 <?= $this->endSection() ?>
