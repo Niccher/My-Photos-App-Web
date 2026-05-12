@@ -32,7 +32,7 @@ class Photos extends BaseController
 
         $data = [
             'photos'         => $query->paginate(100),
-            'pager'          => $query->pager,
+            'pager'          => $photoModel->pager,
             'storageUsed'    => $this->formatBytes($totalBytes),
             'storagePercent' => min(100, ($totalBytes / (1024 * 1024 * 1024 * 1)) * 100),
             'counts'         => $counts,
@@ -376,7 +376,8 @@ class Photos extends BaseController
         }
 
         $data = [
-            'photos'      => $query->findAll(),
+            'photos'      => $query->paginate(100),
+            'pager'       => $photoModel->pager,
             'counts'      => $counts,
             'searchQuery' => $q
         ];
@@ -402,7 +403,8 @@ class Photos extends BaseController
         }
 
         $data = [
-            'photos'      => $query->findAll(),
+            'photos'      => $query->paginate(100),
+            'pager'       => $photoModel->pager,
             'counts'      => $counts,
             'searchQuery' => $q
         ];
@@ -432,7 +434,8 @@ class Photos extends BaseController
 
         $data = [
             'title'       => 'Favorites',
-            'photos'      => $query->findAll(),
+            'photos'      => $query->paginate(100),
+            'pager'       => $photoModel->pager,
             'counts'      => $counts,
             'searchQuery' => $q
         ];
@@ -497,18 +500,19 @@ class Photos extends BaseController
         $album = $albumModel->where('user_id', auth()->id())->find($id);
         if (!$album) throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
 
-        $db = \Config\Database::connect();
-        $photos = $db->table('album_photos')
-                     ->join('photos', 'photos.id = album_photos.photo_id')
-                     ->where('album_id', $id)
-                     ->orderBy('added_at', 'DESC')
-                     ->get()->getResultArray();
+        // Convert to builder for pagination
+        $photoModel = new \App\Models\PhotoModel();
+        $query = $photoModel->select('photos.*, album_photos.added_at as album_added_at')
+                            ->join('album_photos', 'album_photos.photo_id = photos.id')
+                            ->where('album_photos.album_id', $id)
+                            ->orderBy('album_photos.added_at', 'DESC');
 
         $data = [
             'title'    => $album['name'],
             'subtitle' => $album['description'],
             'album'    => $album,
-            'photos'   => $photos,
+            'photos'   => $query->paginate(100),
+            'pager'    => $photoModel->pager,
             'counts'   => $this->getSidebarCounts()
         ];
         return view('photos/index', $data); // Reuse gallery grid

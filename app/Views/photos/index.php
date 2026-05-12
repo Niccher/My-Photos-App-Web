@@ -34,8 +34,8 @@
             $currentDate = $photoDate;
     ?>
         <div class="d-flex align-items-center gap-3 mb-3 mt-5 px-2">
-            <h5 class="mb-0 fw-bold text-white opacity-75 timeline-header"><?= $currentDate ?></h5>
-            <div class="flex-grow-1 border-bottom border-secondary opacity-25"></div>
+            <h5 class="mb-0 fw-bold opacity-75 timeline-header" style="color: var(--text-primary);"><?= $currentDate ?></h5>
+            <div class="flex-grow-1 border-bottom border-secondary opacity-25" style="border-color: var(--border-color) !important;"></div>
         </div>
         <div class="photo-grid">
 <?php endif; ?>

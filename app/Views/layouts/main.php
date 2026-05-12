@@ -19,6 +19,9 @@
     <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
     <!-- Custom Style -->
     <link rel="stylesheet" href="<?= base_url('css/style.css') ?>">
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="<?= base_url('app_icon.png') ?>">
+    <link rel="apple-touch-icon" href="<?= base_url('app_icon.png') ?>">
     <script>
         const BASE_URL = '<?= base_url() ?>';
     </script>
@@ -130,7 +133,7 @@
         .sidebar .nav-link {
             border-radius: 0 25px 25px 0;
             margin-right: 0.5rem;
-            color: #3c4043;
+            color: var(--text-primary);
             padding: 0.75rem 1.5rem;
             font-size: 0.875rem;
             font-weight: 500;
@@ -138,13 +141,20 @@
         }
 
         .sidebar .nav-link:hover {
-            background-color: #f1f3f4;
-            color: #1a73e8;
+            background-color: var(--border-color);
+            color: var(--accent-color);
         }
 
         .sidebar .nav-link.active {
             background-color: #e8f0fe;
             color: #1967d2;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .sidebar .nav-link.active {
+                background-color: rgba(66, 133, 244, 0.1);
+                color: #8ab4f8;
+            }
         }
 
         .sidebar .nav-link i {
@@ -160,7 +170,7 @@
         .sidebar-section-title {
             font-size: 0.7rem;
             font-weight: 600;
-            color: #5f6368;
+            color: var(--text-muted);
             padding: 1.5rem 1.5rem 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -169,12 +179,12 @@
         .storage-indicator {
             padding: 1.5rem;
             margin-top: auto;
-            border-top: 1px solid #f1f3f4;
+            border-top: 1px solid var(--border-color);
         }
 
         .storage-indicator .progress {
             height: 4px;
-            background-color: #e8eaed;
+            background-color: var(--border-color);
             margin-bottom: 0.5rem;
         }
 
@@ -183,7 +193,8 @@
             padding: 2rem;
             transition: all 0.3s;
             min-height: calc(100vh - 56px);
-            background-color: #ffffff;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
         }
 
         @media (max-width: 991.98px) {
@@ -210,14 +221,15 @@
     </div>
 </div>
 
-<nav class="navbar navbar-expand-lg sticky-top">
-    <div class="container-fluid">
-        <button class="btn btn-link d-lg-none me-2" id="sidebarToggle">
-            <i class="bi bi-list"></i>
-        </button>
-        <a class="navbar-brand" href="<?= base_url() ?>">
-            <i class="bi bi-images"></i> Photos
-        </a>
+<nav class="navbar navbar-expand-lg sticky-top glass-effect">
+        <div class="container-fluid d-flex align-items-center">
+            <button class="btn btn-link text-dark me-2 d-xl-none" id="sidebarToggle">
+                <i class="bi bi-list fs-4"></i>
+            </button>
+            <a class="navbar-brand me-auto" href="<?= base_url() ?>">
+                <img src="<?= base_url('app_icon.png') ?>" alt="Logo" width="32" height="32" class="me-2 rounded shadow-sm">
+                <span>Photos</span>
+            </a>
         <form class="ms-3 flex-grow-1 d-none d-lg-block" style="max-width: 400px;" onsubmit="return false;">
             <div class="input-group input-group-sm">
                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -228,6 +240,19 @@
             <button class="btn btn-outline-secondary btn-sm px-3 d-none d-sm-inline-block" id="btnToggleSelect" title="Select photos">
                 <i class="bi bi-check2-square"></i> <span id="selectModeText">Select</span>
             </button>
+            <div class="dropdown mx-1">
+                <button class="btn btn-link text-dark p-2" id="btnThemeDropdown" data-bs-toggle="dropdown" title="Change Theme">
+                    <i class="bi bi-palette fs-5"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end glass-effect shadow border-0 p-2" style="min-width: 150px;">
+                    <li><a class="dropdown-item rounded-3 mb-1 theme-opt active" href="#" data-theme="auto"><i class="bi bi-display me-2"></i>Auto (OS)</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item rounded-3 mb-1 theme-opt" href="#" data-theme="light"><i class="bi bi-sun me-2"></i>Light</a></li>
+                    <li><a class="dropdown-item rounded-3 mb-1 theme-opt" href="#" data-theme="dark"><i class="bi bi-moon-stars me-2"></i>Dark</a></li>
+                    <li><a class="dropdown-item rounded-3 mb-1 theme-opt" href="#" data-theme="solarized"><i class="bi bi-brightness-high me-2"></i>Solarized</a></li>
+                    <li><a class="dropdown-item rounded-3 theme-opt" href="#" data-theme="grey"><i class="bi bi-circle-half me-2"></i>Grey</a></li>
+                </ul>
+            </div>
             <button class="btn btn-outline-primary btn-sm" id="btnScan" title="Scan uploads folder">
                 <i class="bi bi-arrow-repeat"></i> <span class="d-none d-md-inline">Scan</span>
             </button>
@@ -332,15 +357,15 @@
                 </li>
             </ul>
             
-            <div class="storage-indicator">
+            <div class="storage-indicator p-3 rounded-4 mt-4" style="background: var(--card-bg); border: 1px solid var(--border-color);">
                 <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="small text-muted fw-bold">Storage</span>
-                    <span class="small text-muted"><?= round($storagePercent ?? 0) ?>%</span>
+                    <span class="small fw-bold" style="color: var(--text-primary);">Storage</span>
+                    <span class="small" style="color: var(--text-muted);"><?= round($storagePercent ?? 0) ?>%</span>
                 </div>
-                <div class="progress">
-                    <div class="progress-bar <?= ($storagePercent ?? 0) > 90 ? 'bg-danger' : 'bg-primary' ?>" role="progressbar" style="width: <?= $storagePercent ?? 0 ?>%" aria-valuenow="<?= $storagePercent ?? 0 ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                <div class="progress" style="height: 6px; background-color: var(--border-color);">
+                    <div class="progress-bar <?= ($storagePercent ?? 0) > 90 ? 'bg-danger' : '' ?>" role="progressbar" style="width: <?= $storagePercent ?? 0 ?>%; background-color: var(--accent-color);" aria-valuenow="<?= $storagePercent ?? 0 ?>" aria-valuemin="0" aria-valuemax="100"></div>
                 </div>
-                <p class="small text-muted mb-0" style="font-size: 0.7rem;"><?= $storageUsed ?? '0 B' ?> of 1 GB used</p>
+                <p class="small mt-2 mb-0" style="font-size: 0.7rem; color: var(--text-muted);"><?= $storageUsed ?? '0 B' ?> of 1 GB used</p>
             </div>
         </div>
     </nav>
@@ -350,7 +375,7 @@
         </main>
         
         <!-- Interactive Timeline Scrubbar -->
-        <div id="timelineScrubbar" class="timeline-scrubbar d-none d-xl-flex">
+        <div id="timelineScrubbar" class="timeline-scrubbar d-none d-lg-flex">
             <div class="timeline-line"></div>
             <div id="timelineMarkers"></div>
             <div id="timelineTooltip" class="timeline-tooltip d-none">

@@ -29,9 +29,12 @@
             if ($currentDate !== '') echo '</div>'; // Close previous grid
             $currentDate = $photoDate;
     ?>
-        <h5 class="mb-3 mt-4 text-muted px-2"><?= $currentDate ?></h5>
-        <div class="photo-grid">
-    <?php endif; ?>
+        <div class="d-flex align-items-center gap-3 mb-3 mt-4 px-2">
+        <h5 class="mb-0 fw-bold opacity-75 timeline-header" style="color: var(--text-primary);"><?= $currentDate ?></h5>
+        <div class="flex-grow-1 border-bottom border-secondary opacity-25" style="border-color: var(--border-color) !important;"></div>
+    </div>
+    <div class="photo-grid">
+<?php endif; ?>
         
         <div class="photo-item" 
              data-id="<?= $photo['id'] ?>" 
@@ -56,6 +59,18 @@
         
     <?php endforeach; ?>
     </div> <!-- Close last grid -->
+
+    <!-- Infinite Scroll Sentinel -->
+    <div id="infiniteScrollSentinel" class="text-center py-4" style="min-height: 100px;">
+        <div class="spinner-border text-primary d-none" role="status">
+            <span class="visually-hidden">Loading more...</span>
+        </div>
+    </div>
+    
+    <!-- Hidden Pagination for SEO/Fallback -->
+    <div class="d-none">
+        <?= $pager->links() ?>
+    </div>
 <?php endif; ?>
 
 <!-- Include the lightbox partial if needed, but it's already in index.php. Wait. The lightbox modal is currently only in index.php! I should move it to main.php or duplicate it. -->

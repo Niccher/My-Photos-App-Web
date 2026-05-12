@@ -32,7 +32,7 @@ $(document).ready(function () {
     let currentPage = 1;
     let isFetching = false;
     let hasMore = true;
-    let lastDateGroup = $('.photo-grid').last().prev().find('h5').text().trim() || '';
+    let lastDateGroup = $('.timeline-header').last().text().trim() || '';
 
     // Initialize Intersection Observer for Infinite Scroll
     const sentinel = document.getElementById('infiniteScrollSentinel');
@@ -865,7 +865,7 @@ $(document).ready(function () {
         const $tooltipText = $('#timelineTooltipText');
         const $headers = $('.timeline-header');
 
-        if ($headers.length < 2) {
+        if ($headers.length < 1) {
             $scrubbar.addClass('d-none');
             return;
         }
@@ -914,6 +914,11 @@ $(document).ready(function () {
 
     // Call init after content is potentially loaded
     initTimelineScrubbar();
+    
+    // Re-initialize scrubbar when more content is loaded via Infinite Scroll
+    $(document).on('contentLoaded', function() {
+        initTimelineScrubbar();
+    });
 
     // Dropzone Initialization
     if ($('#photoDropzone').length) {
@@ -935,5 +940,38 @@ $(document).ready(function () {
                 });
             }
         });
+    }
+
+    // --- Theme Selector Logic ---
+    const $themeOpts = $('.theme-opt');
+    
+    // Check for saved theme or default to auto
+    const savedTheme = localStorage.getItem('theme') || 'auto';
+    setAppTheme(savedTheme);
+
+    $themeOpts.on('click', function(e) {
+        e.preventDefault();
+        const newTheme = $(this).data('theme');
+        setAppTheme(newTheme);
+        localStorage.setItem('theme', newTheme);
+    });
+
+    function setAppTheme(theme) {
+        if (theme === 'auto') {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', theme);
+        }
+        
+        // Update active state in dropdown
+        $themeOpts.removeClass('active');
+        $(`.theme-opt[data-theme="${theme}"]`).addClass('active');
+        
+        // Update main palette icon color if needed
+        if (theme === 'solarized') {
+            $('#btnThemeDropdown i').css('color', '#b58900');
+        } else {
+            $('#btnThemeDropdown i').css('color', '');
+        }
     }
 });
